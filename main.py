@@ -90,7 +90,7 @@ def main() -> None:
 
     hand_detector = None
     if not args.no_hands:
-        hand_detector = HandDetector()
+        hand_detector = HandDetector(config)
 
     while True:
         ok, frame = cap.read()
@@ -101,7 +101,8 @@ def main() -> None:
             frame = cv2.flip(frame, 1)
 
         timestamp = time.time()
-        face_result = face_mesh.process(frame)
+        timestamp_ms = int(timestamp * 1000)
+        face_result = face_mesh.process(frame, timestamp_ms)
 
         ear = None
         head_pose = None
@@ -128,7 +129,7 @@ def main() -> None:
 
         hand_boxes = []
         if hand_detector is not None:
-            hand_boxes = hand_detector.detect(frame)
+            hand_boxes = hand_detector.detect(frame, timestamp_ms)
 
         attention_state = scorer.update(
             eye_state=eye_state,

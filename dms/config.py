@@ -15,6 +15,18 @@ class DMSConfig:
     detection_confidence: float = 0.5
     tracking_confidence: float = 0.5
     landmark_smoothing: float = 0.7
+    face_landmarker_model: str = "models/face_landmarker.task"
+    face_landmarker_model_url: str = (
+        "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
+    )
+    hand_landmarker_model: str = "models/hand_landmarker.task"
+    hand_landmarker_model_url: str = (
+        "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+    )
+    hand_detection_confidence: float = 0.5
+    hand_presence_confidence: float = 0.5
+    hand_tracking_confidence: float = 0.5
+    download_models: bool = True
 
     ear_threshold: float = 0.21
     blink_min_frames: int = 2

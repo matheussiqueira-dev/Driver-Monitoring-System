@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
@@ -7,6 +8,7 @@ import cv2
 import numpy as np
 
 from .config import DMSConfig
+from .mediapipe_utils import ensure_model_asset
 
 
 @dataclass
@@ -88,26 +90,61 @@ class YoloPhoneDetector:
 
 
 class HandDetector:
-    def __init__(self) -> None:
+    def __init__(self, config: DMSConfig) -> None:
         import mediapipe as mp
 
-        self._mp_hands = mp.solutions.hands
-        self._hands = self._mp_hands.Hands(
-            static_image_mode=False,
-            max_num_hands=2,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5,
-        )
+        self._use_tasks = not hasattr(mp, "solutions")
+        self._hands = None
+        self._landmarker = None
+        if not self._use_tasks:
+            self._mp_hands = mp.solutions.hands
+            self._hands = self._mp_hands.Hands(
+                static_image_mode=False,
+                max_num_hands=2,
+                min_detection_confidence=config.hand_detection_confidence,
+                min_tracking_confidence=config.hand_tracking_confidence,
+            )
+        else:
+            from mediapipe import tasks
 
-    def detect(self, frame: np.ndarray) -> List[Tuple[int, int, int, int]]:
+            model_path = config.hand_landmarker_model
+            if config.download_models:
+                model_path = ensure_model_asset(model_path, config.hand_landmarker_model_url)
+            options = tasks.vision.HandLandmarkerOptions(
+                base_options=tasks.BaseOptions(model_asset_path=model_path),
+                running_mode=tasks.vision.RunningMode.VIDEO,
+                num_hands=2,
+                min_hand_detection_confidence=config.hand_detection_confidence,
+                min_hand_presence_confidence=config.hand_presence_confidence,
+                min_tracking_confidence=config.hand_tracking_confidence,
+            )
+            self._landmarker = tasks.vision.HandLandmarker.create_from_options(options)
+
+    def detect(self, frame: np.ndarray, timestamp_ms: Optional[int] = None) -> List[Tuple[int, int, int, int]]:
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = self._hands.process(rgb)
-        if not results.multi_hand_landmarks:
-            return []
         h, w = frame.shape[:2]
         boxes = []
-        for hand_landmarks in results.multi_hand_landmarks:
-            coords = np.array([(lm.x * w, lm.y * h) for lm in hand_landmarks.landmark], dtype=np.float32)
+        if not self._use_tasks:
+            results = self._hands.process(rgb)
+            if not results.multi_hand_landmarks:
+                return []
+            for hand_landmarks in results.multi_hand_landmarks:
+                coords = np.array([(lm.x * w, lm.y * h) for lm in hand_landmarks.landmark], dtype=np.float32)
+                x1, y1 = coords.min(axis=0)
+                x2, y2 = coords.max(axis=0)
+                boxes.append((int(x1), int(y1), int(x2), int(y2)))
+            return boxes
+
+        if timestamp_ms is None:
+            timestamp_ms = int(time.time() * 1000)
+        import mediapipe as mp
+
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+        results = self._landmarker.detect_for_video(mp_image, timestamp_ms)
+        if not results.hand_landmarks:
+            return []
+        for hand_landmarks in results.hand_landmarks:
+            coords = np.array([(lm.x * w, lm.y * h) for lm in hand_landmarks], dtype=np.float32)
             x1, y1 = coords.min(axis=0)
             x2, y2 = coords.max(axis=0)
             boxes.append((int(x1), int(y1), int(x2), int(y2)))

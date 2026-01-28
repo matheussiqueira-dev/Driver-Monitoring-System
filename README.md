@@ -29,6 +29,7 @@ pip install -r requirements.txt
 ```
 
 > Observacao: `ultralytics` baixa automaticamente os pesos do YOLO na primeira execucao.
+> Em versoes recentes do MediaPipe, os modelos `.task` de Face/Hand Landmarker sao baixados automaticamente para `models/` na primeira execucao.
 
 ## Como rodar
 Camera padrao:
