@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import sys
 import time
 from typing import Optional
 
 import cv2
 
 from dms.attention import AttentionScorer
+from dms.camera import find_camera_index, list_camera_devices
 from dms.config import DMSConfig
 from dms.detection import HandDetector, YoloPhoneDetector
 from dms.ear import EyeStateTracker, LEFT_EYE_IDX, RIGHT_EYE_IDX, compute_ear
@@ -47,6 +49,8 @@ def is_phone_near_face(phone_bbox, face_bbox, frame_shape, pitch: Optional[float
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Driver Monitoring System (DMS)")
     parser.add_argument("--source", default="0", help="Camera index or video path")
+    parser.add_argument("--camera-name", default=None, help="Camera name (ex: Brio) for auto-selection")
+    parser.add_argument("--list-cameras", action="store_true", help="List camera devices and exit")
     parser.add_argument("--weights", default=None, help="YOLO weights path")
     parser.add_argument("--device", default=None, help="YOLO device (cpu or cuda)")
     parser.add_argument("--no-yolo", action="store_true", help="Disable YOLO phone detection")
@@ -74,7 +78,29 @@ def main() -> None:
     if args.no_mesh:
         config.show_mesh = False
 
-    cap = cv2.VideoCapture(parse_source(str(args.source)))
+    if args.list_cameras:
+        devices = list_camera_devices()
+        if devices:
+            print("Cameras disponiveis:")
+            for idx, name in enumerate(devices):
+                print(f"{idx}: {name}")
+        else:
+            print("Nao foi possivel listar cameras. Instale `pygrabber` no Windows para usar --list-cameras.")
+        return
+
+    source = parse_source(str(args.source))
+    if isinstance(source, int) and args.camera_name:
+        index = find_camera_index(args.camera_name)
+        if index is None:
+            print(f"Camera '{args.camera_name}' nao encontrada. Use --list-cameras para descobrir o indice.")
+            return
+        source = index
+        print(f"Usando camera {index}: {args.camera_name}")
+
+    if isinstance(source, int) and sys.platform.startswith("win"):
+        cap = cv2.VideoCapture(source, cv2.CAP_DSHOW)
+    else:
+        cap = cv2.VideoCapture(source)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.frame_width)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.frame_height)
 

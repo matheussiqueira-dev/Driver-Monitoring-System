@@ -37,6 +37,13 @@ Camera padrao:
 python main.py --source 0
 ```
 
+Selecionar camera pelo nome (Windows + pygrabber):
+```bash
+python -m pip install pygrabber
+python main.py --list-cameras
+python main.py --camera-name Brio
+```
+
 Video:
 ```bash
 python main.py --source path/para/video.mp4
