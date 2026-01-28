@@ -2,6 +2,8 @@
 
 Sistema de Analise de Atencao do Motorista em tempo real usando camera frontal. Detecta sonolencia, distracao, movimentos de cabeca e uso de celular, gerando um Attention Score continuo e visual.
 
+![Demo](assets/demo.gif)
+
 ## Principais recursos
 - Face Mesh (MediaPipe) com 468 landmarks e suavizacao.
 - Eye Aspect Ratio (EAR) para piscadas e sonolencia.
