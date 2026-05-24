@@ -11,6 +11,14 @@ from .config import DMSConfig
 
 @dataclass
 class HeadPose:
+    """Euler angles in degrees for the current image.
+
+    The attention logic uses absolute yaw/pitch thresholds. For overlays, roll
+    is treated as image-space visual roll and blended with the eye-axis roll;
+    positive overlay roll is clockwise on screen because image y grows downward.
+    Existing phone heuristics treat positive pitch as looking down.
+    """
+
     yaw: float
     pitch: float
     roll: float

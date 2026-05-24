@@ -93,8 +93,8 @@ class FaceMeshDetector:
         if self._smoothed is None:
             self._smoothed = coords
         else:
-            alpha = self.config.landmark_smoothing
-            self._smoothed = alpha * self._smoothed + (1.0 - alpha) * coords
+            alpha = self.config.landmark_smoothing_alpha
+            self._smoothed = self._smoothed + alpha * (coords - self._smoothed)
 
         x_min = int(np.min(self._smoothed[:, 0]))
         y_min = int(np.min(self._smoothed[:, 1]))

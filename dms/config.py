@@ -15,6 +15,7 @@ class DMSConfig:
     detection_confidence: float = 0.5
     tracking_confidence: float = 0.5
     landmark_smoothing: float = 0.7
+    landmark_smoothing_alpha: float = 0.45
     face_landmarker_model: str = "models/face_landmarker.task"
     face_landmarker_model_url: str = (
         "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
@@ -60,5 +61,16 @@ class DMSConfig:
     bonus_stable: float = 5.0
 
     show_mesh: bool = True
+    show_face_overlay: bool = True
     show_debug: bool = True
     bar_position: str = "right"
+
+    overlay_smoothing_alpha: float = 0.35
+    overlay_hold_frames: int = 8
+    overlay_fade_frames: int = 12
+    max_overlay_jump_px: float = 80.0
+    min_face_scale: float = 0.5
+    max_face_scale: float = 2.5
+    overlay_reference_face_width: float = 360.0
+    overlay_roll_weight: float = 0.7
+    headpose_roll_weight: float = 0.3

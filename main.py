@@ -13,9 +13,10 @@ from dms.detection import HandDetector, YoloPhoneDetector
 from dms.ear import EyeStateTracker, LEFT_EYE_IDX, RIGHT_EYE_IDX, compute_ear
 from dms.face_mesh import FaceMeshDetector
 from dms.head_pose import HeadPoseEstimator
+from dms.overlay import FaceOverlayTracker
 from dms.spatial import is_phone_near_face
 from dms.utils import FPSCounter
-from dms.visualization import draw_attention_bar, draw_detection_boxes, draw_face_box, draw_metrics, draw_phone_boxes
+from dms.visualization import draw_attention_bar, draw_detection_boxes, draw_metrics, draw_phone_boxes, draw_tracked_face_overlay
 
 
 def parse_source(value: str):
@@ -34,6 +35,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-yolo", action="store_true", help="Disable YOLO phone detection")
     parser.add_argument("--no-hands", action="store_true", help="Disable MediaPipe hands fallback")
     parser.add_argument("--no-mesh", action="store_true", help="Disable face mesh overlay")
+    parser.add_argument("--no-face-overlay", action="store_true", help="Disable tracked face overlay")
+    parser.add_argument("--no-debug-overlay", action="store_true", help="Hide overlay anchor/scale debug labels")
     parser.add_argument("--width", type=int, default=None, help="Capture width")
     parser.add_argument("--height", type=int, default=None, help="Capture height")
     parser.add_argument("--no-mirror", action="store_true", help="Disable mirroring the camera feed")
@@ -55,6 +58,10 @@ def main() -> None:
         config.mirror = False
     if args.no_mesh:
         config.show_mesh = False
+    if args.no_face_overlay:
+        config.show_face_overlay = False
+    if args.no_debug_overlay:
+        config.show_debug = False
 
     if args.list_cameras:
         devices = list_camera_devices()
@@ -85,6 +92,7 @@ def main() -> None:
     face_mesh = FaceMeshDetector(config)
     eye_tracker = EyeStateTracker(config)
     head_pose_estimator = HeadPoseEstimator(config)
+    overlay_tracker = FaceOverlayTracker(config)
     scorer = AttentionScorer(config)
     fps_counter = FPSCounter()
 
@@ -121,6 +129,7 @@ def main() -> None:
             right_ear = compute_ear(face_result.landmarks, RIGHT_EYE_IDX)
             ear = (left_ear + right_ear) / 2.0
             head_pose = head_pose_estimator.estimate(face_result.landmarks, frame.shape[:2])
+        overlay_transform = overlay_tracker.update(face_result.landmarks, frame.shape, head_pose)
 
         eye_state = eye_tracker.update(ear, timestamp)
 
@@ -152,7 +161,8 @@ def main() -> None:
 
         if config.show_mesh:
             face_mesh.draw(frame)
-        draw_face_box(frame, face_result.bbox)
+        if config.show_face_overlay:
+            draw_tracked_face_overlay(frame, overlay_transform, config.show_debug)
         if detections is not None:
             draw_detection_boxes(frame, detections.all)
         if hand_boxes:
