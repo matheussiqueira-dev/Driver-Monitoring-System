@@ -35,8 +35,12 @@ class YoloPhoneDetector:
 
         try:
             from ultralytics import YOLO
-        except ImportError as exc:
-            raise ImportError("Ultralytics is required. Install with `pip install ultralytics`." ) from exc
+        except Exception as exc:
+            raise RuntimeError(
+                "Nao foi possivel carregar Ultralytics/YOLO. "
+                "Confirme a instalacao das dependencias, do PyTorch e do Microsoft Visual C++ Redistributable. "
+                "Para executar sem YOLO, use `--no-yolo`."
+            ) from exc
 
         self.model = YOLO(config.yolo_weights)
         names = self.model.names
