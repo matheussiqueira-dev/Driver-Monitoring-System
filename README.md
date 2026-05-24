@@ -121,6 +121,8 @@ Validacao de build estatico:
 npm run build
 ```
 
+O build gera a pasta `dist/`, que e a saida configurada para a Vercel. O arquivo `.vercelignore` envia apenas a superficie web estatica para deploy e impede que `main.py` seja interpretado como Python Function.
+
 Deploy na Vercel:
 
 ```bash

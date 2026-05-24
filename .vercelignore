@@ -1,0 +1,14 @@
+# Deploy only the static portfolio surface. The Python/OpenCV DMS stays in GitHub
+# for local execution and must not be interpreted as a Vercel Python Function.
+/*
+!.vercelignore
+!vercel.json
+!package.json
+!index.html
+!styles.css
+!app.js
+!favicon.svg
+!assets/
+!assets/**
+!scripts/
+!scripts/**
