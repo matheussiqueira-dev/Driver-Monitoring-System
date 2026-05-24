@@ -1,0 +1,23 @@
+{
+  "name": "driver-monitoring-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Driver Monitoring System portfolio interface with real-time DMS visualization and dashboard.",
+  "scripts": {
+    "build": "node -e \"const fs=require('fs'); ['index.html','styles.css','app.js','assets/demo.gif','favicon.svg'].forEach((file)=>{ if(!fs.existsSync(file)) throw new Error('Missing '+file); }); console.log('Static build ready for Vercel');\"",
+    "dev": "python -m http.server 3000",
+    "preview": "python -m http.server 3000",
+    "test": "python -m unittest discover -s tests"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "computer-vision",
+    "driver-monitoring",
+    "facemesh",
+    "opencv",
+    "vercel"
+  ],
+  "author": "Matheus Siqueira"
+}

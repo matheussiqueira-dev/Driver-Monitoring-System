@@ -2,3 +2,7 @@ __pycache__/
 *.pyc
 models/
 yolov8*.pt
+node_modules/
+.vercel/
+dist/
+artifacts/

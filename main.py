@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import sys
 import time
-from typing import Optional
 
 import cv2
 
@@ -14,36 +13,15 @@ from dms.detection import HandDetector, YoloPhoneDetector
 from dms.ear import EyeStateTracker, LEFT_EYE_IDX, RIGHT_EYE_IDX, compute_ear
 from dms.face_mesh import FaceMeshDetector
 from dms.head_pose import HeadPoseEstimator
+from dms.spatial import is_phone_near_face
 from dms.utils import FPSCounter
-from dms.visualization import draw_attention_bar, draw_detection_boxes, draw_metrics, draw_phone_boxes
+from dms.visualization import draw_attention_bar, draw_detection_boxes, draw_face_box, draw_metrics, draw_phone_boxes
 
 
 def parse_source(value: str):
     if value.isdigit():
         return int(value)
     return value
-
-
-def is_phone_near_face(phone_bbox, face_bbox, frame_shape, pitch: Optional[float]) -> bool:
-    if face_bbox is None:
-        return False
-    fx1, fy1, fx2, fy2 = face_bbox
-    px1, py1, px2, py2 = phone_bbox
-    face_cx = (fx1 + fx2) / 2.0
-    face_cy = (fy1 + fy2) / 2.0
-    phone_cx = (px1 + px2) / 2.0
-    phone_cy = (py1 + py2) / 2.0
-    face_w = max(1.0, fx2 - fx1)
-    face_h = max(1.0, fy2 - fy1)
-    dx = phone_cx - face_cx
-    dy = phone_cy - face_cy
-    dist = (dx ** 2 + dy ** 2) ** 0.5
-    near = dist < max(face_w, face_h) * 0.9
-
-    frame_h = frame_shape[0]
-    below_face = phone_cy > (fy2 + 0.2 * face_h) or phone_cy > frame_h * 0.6
-    looking_down = pitch is not None and pitch > 10.0
-    return near or below_face or looking_down
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -112,11 +90,17 @@ def main() -> None:
 
     yolo_detector = None
     if not args.no_yolo:
-        yolo_detector = YoloPhoneDetector(config)
+        try:
+            yolo_detector = YoloPhoneDetector(config)
+        except Exception as exc:
+            print(f"[DMS] YOLO desativado: {exc}")
 
     hand_detector = None
     if not args.no_hands:
-        hand_detector = HandDetector(config)
+        try:
+            hand_detector = HandDetector(config)
+        except Exception as exc:
+            print(f"[DMS] Detector de maos desativado: {exc}")
 
     while True:
         ok, frame = cap.read()
@@ -168,6 +152,7 @@ def main() -> None:
 
         if config.show_mesh:
             face_mesh.draw(frame)
+        draw_face_box(frame, face_result.bbox)
         if detections is not None:
             draw_detection_boxes(frame, detections.all)
         if hand_boxes:

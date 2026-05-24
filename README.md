@@ -1,122 +1,166 @@
 # Driver Monitoring System (DMS)
 
-Sistema de Analise de Atencao do Motorista em tempo real usando camera frontal. Detecta sonolencia, distracao, movimentos de cabeca e uso de celular, gerando um Attention Score continuo e visual.
+Sistema de Monitoramento do Motorista em tempo real usando Visao Computacional e IA. Detecta sonolencia, distracao, direcao do olhar e uso de celular ao volante com Face Mesh, Eye Aspect Ratio, Head Pose Estimation e Object Detection, gerando um Attention Score continuo.
 
 ![Demo](assets/demo.gif)
 
+## Desenvolvedor
+
+- Desenvolvido por Matheus Siqueira
+- Portfolio oficial: [www.matheussiqueira.dev](https://www.matheussiqueira.dev)
+
+## Entregas do projeto
+
+- Pipeline Python/OpenCV para processamento em tempo real.
+- Overlay visual com malha facial, boxes, metricas, score e alertas.
+- Interface web estatica para portfolio e deploy na Vercel.
+- Dashboard inteligente com KPIs, tendencias, eventos e insights.
+- Regras mais robustas para reduzir falsos positivos de celular.
+- Configuracao `vercel.json` com cache de assets e rotas limpas.
+
 ## Principais recursos
-- Face Mesh (MediaPipe) com 468 landmarks e suavizacao.
-- Eye Aspect Ratio (EAR) para piscadas e sonolencia.
-- Head Pose Estimation (yaw, pitch, roll) via solvePnP.
+
+- Face Mesh (MediaPipe) com 468 landmarks e suavizacao por EMA.
+- Eye Aspect Ratio (EAR) para piscadas, sonolencia e microssono.
+- Head Pose Estimation com yaw, pitch e roll via `solvePnP`.
 - Deteccao de celular por YOLO (Ultralytics).
-- Score de atencao (0-100) com suavizacao temporal.
-- Overlay visual com malha facial, boxes, metricas e barra animada.
+- Fallback de maos com MediaPipe Hands.
+- Score de atencao 0-100 com suavizacao temporal.
+- Dashboard responsivo preparado para integracao futura com dados reais.
 
-## Pipeline
-1. Captura de frame (camera ou video)
-2. Face Mesh
-3. EAR + Head Pose
-4. YOLO (celular) + Hands (fallback)
-5. Fusao de sinais
-6. Attention Score
-7. Renderizacao
+## Arquitetura
 
-## Requisitos
-- Python 3.9+
-- Webcam ou video de teste
-
-## Instalacao
-```bash
-pip install -r requirements.txt
+```text
+Driver-Monitoring-System/
+  assets/
+    demo.gif
+  dms/
+    attention.py
+    camera.py
+    config.py
+    detection.py
+    ear.py
+    face_mesh.py
+    head_pose.py
+    mediapipe_utils.py
+    spatial.py
+    utils.py
+    visualization.py
+  tests/
+  app.js
+  index.html
+  main.py
+  package.json
+  requirements.txt
+  styles.css
+  vercel.json
 ```
 
-> Observacao: `ultralytics` baixa automaticamente os pesos do YOLO na primeira execucao.
-> Em versoes recentes do MediaPipe, os modelos `.task` de Face/Hand Landmarker sao baixados automaticamente para `models/` na primeira execucao.
+## Pipeline Python
 
-## Como rodar
-Camera padrao:
+1. Captura de frame por camera ou video.
+2. Face Mesh para landmarks faciais.
+3. Calculo de EAR e estimativa de pose da cabeca.
+4. YOLO para celular e MediaPipe Hands como fallback.
+5. Fusao de sinais no `AttentionScorer`.
+6. Renderizacao do overlay em OpenCV.
+7. Score continuo, barra animada e alertas.
+
+## Como rodar o DMS em tempo real
+
+Recomendado: Python 3.9 a 3.12. Algumas versoes do MediaPipe podem nao oferecer wheels para Python 3.13.
+
 ```bash
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
 python main.py --source 0
 ```
 
-Selecionar camera pelo nome (Windows + pygrabber):
+Selecionar camera pelo nome no Windows:
+
 ```bash
 python -m pip install pygrabber
 python main.py --list-cameras
 python main.py --camera-name Brio
 ```
 
-Video:
+Rodar com video:
+
 ```bash
 python main.py --source path/para/video.mp4
 ```
 
-Sem espelhamento (camera traseira ou video):
+Opcoes uteis:
+
 ```bash
 python main.py --source 0 --no-mirror
-```
-
-YOLO customizado (incluindo classe `hand`):
-```bash
 python main.py --weights pesos_custom.pt --device cuda
-```
-
-Desativar modulos pesados (para ganho de FPS):
-```bash
 python main.py --no-yolo --no-hands --no-mesh
 ```
 
-## Controles
-- `q` ou `ESC` para sair.
+## Interface web e Vercel
 
-## Parametros importantes
-- `DMSConfig` em `dms/config.py` define thresholds e pesos do score.
-- EAR abaixo de `ear_threshold` por `drowsy_time_s` aciona sonolencia.
-- Desvio prolongado de yaw/pitch acima de `yaw_threshold`/`pitch_threshold` gera penalidade.
-- Celular detectado adiciona penalidade alta ao score.
+A interface web e estatica e pode ser publicada diretamente na Vercel. Ela usa o `assets/demo.gif` e um overlay em canvas para demonstrar o comportamento visual do sistema, com dados simulados desacoplados para KPIs e insights.
 
-## Visualizacao
-A interface desenha:
-- Malha facial (Face Mesh)
-- Boxes de deteccao
-- EAR, yaw/pitch/roll, FPS
-- Score e barra animada
-- Alertas em tempo real
+Execucao local:
+
+```bash
+python -m http.server 3000
+```
+
+Abra:
+
+```text
+http://localhost:3000
+```
+
+Validacao de build estatico:
+
+```bash
+npm run build
+```
+
+Deploy na Vercel:
+
+```bash
+vercel
+vercel --prod
+```
+
+Variaveis de ambiente:
+
+```text
+Nenhuma variavel e obrigatoria para a interface web estatica.
+```
+
+## Dashboard
+
+O dashboard inclui:
+
+- Score medio e tendencia dos ultimos segundos.
+- Eventos criticos e classificacao de risco.
+- EAR medio e FPS medio.
+- Lista de eventos ativos.
+- Insight automatico contextual.
+- Estrutura pronta para substituir mock data por API, websocket ou telemetria real.
 
 ## Tratamento de desafios
-- **Iluminacao variavel**: usa landmarks robustos; ajuste `min_detection_confidence` e `min_tracking_confidence`.
-- **Oculos escuros**: reduzir dependencia do EAR e priorizar head pose; aumentar tolerancia no limiar de olhos.
-- **Oclusao parcial**: suavizacao com EMA nos landmarks; retoma rapidamente quando a face volta.
-- **Falsos positivos de celular**: filtra por area minima e proximidade do rosto; combine com pitch para baixo.
-- **Sensibilidade vs robustez**: ajuste `drowsy_time_s`, `offroad_time_s` e penalidades em `DMSConfig`.
 
-## Extensoes sugeridas
-- Modelo customizado com classe `hand` no YOLO.
-- Classificador de distracao visual com olhar (gaze estimation).
-- Detecao de bocejo por abertura de boca.
-- Adaptacao automatica de thresholds por usuario.
+- Iluminacao variavel: landmarks robustos e ajuste de `detection_confidence`/`tracking_confidence`.
+- Oculos escuros: reduzir dependencia do EAR e priorizar head pose.
+- Oclusao parcial: suavizacao com EMA nos landmarks.
+- Falsos positivos de celular: filtro por area minima, proximidade do rosto e pitch para baixo.
+- Sensibilidade vs. robustez: ajuste de `drowsy_time_s`, `offroad_time_s` e penalidades em `DMSConfig`.
 
-## Estrutura do projeto
-```
-Driver Monitoring System/
-  dms/
-    attention.py
-    config.py
-    detection.py
-    ear.py
-    face_mesh.py
-    head_pose.py
-    utils.py
-    visualization.py
-  main.py
-  requirements.txt
-  README.md
+## Testes
+
+```bash
+python -m unittest discover -s tests
 ```
 
-## Notas de desempenho
-- Em maquinas sem GPU, use `yolov8n.pt` para manter FPS acima de 20.
-- Desative o YOLO com `--no-yolo` para focar apenas em sonolencia/pose.
+Os testes atuais cobrem regras de score e filtro espacial de celular. Para evolucao, recomenda-se adicionar testes E2E da interface e cenarios com videos curtos anotados.
 
----
+## Aviso
 
-**Aviso**: Este projeto e para fins educacionais e de demonstracao. Em sistemas automotivos reais, sao necessarios testes extensivos, redundancia e certificacoes.
+Este projeto e para fins educacionais, demonstrativos e de portfolio. Sistemas automotivos reais exigem testes extensivos, redundancia e certificacoes especificas.

@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Sistema de Monitoramento do Motorista em tempo real com Face Mesh, EAR, Head Pose, Object Detection e dashboard inteligente."
+    />
+    <meta name="author" content="Matheus Siqueira" />
+    <meta name="theme-color" content="#07110f" />
+    <meta property="og:title" content="Driver Monitoring System | Matheus Siqueira" />
+    <meta
+      property="og:description"
+      content="Visao Computacional e IA para score continuo de atencao, alertas e dashboard de telemetria."
+    />
+    <meta property="og:image" content="assets/demo.gif" />
+    <title>Driver Monitoring System | Matheus Siqueira</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href="assets/demo.gif" as="image" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#monitor" aria-label="Driver Monitoring System">
+          <span class="brand-mark">DMS</span>
+          <span>
+            <strong>Driver Monitoring</strong>
+            <small>Computer Vision + AI</small>
+          </span>
+        </a>
+
+        <nav class="nav-links" aria-label="Navegacao principal">
+          <a href="#monitor">Monitor</a>
+          <a href="#dashboard">Dashboard</a>
+          <a href="#arquitetura">Arquitetura</a>
+        </nav>
+
+        <a class="portfolio-link" href="https://www.matheussiqueira.dev" target="_blank" rel="noreferrer">
+          Portfolio
+        </a>
+      </header>
+
+      <main>
+        <section class="monitor-grid" id="monitor" aria-labelledby="monitor-title">
+          <div class="monitor-copy">
+            <p class="eyebrow">Real-time Driver Monitoring System</p>
+            <h1 id="monitor-title">Monitoramento inteligente do motorista</h1>
+            <p class="lead">
+              Deteccao de sonolencia, distracao, direcao do olhar e celular ao volante com score continuo de atencao.
+            </p>
+
+            <div class="signal-stack" aria-label="Sinais analisados">
+              <span>Face Mesh</span>
+              <span>EAR</span>
+              <span>Head Pose</span>
+              <span>Object Detection</span>
+            </div>
+
+            <div class="control-panel" aria-label="Controles da visualizacao">
+              <div class="segmented-control" role="group" aria-label="Modo">
+                <button class="source-button is-active" type="button" data-mode="demo">Demo</button>
+                <button class="source-button" type="button" data-mode="camera">Camera</button>
+                <button class="source-button" type="button" data-mode="review">Review</button>
+              </div>
+
+              <label class="range-control" for="sensitivityRange">
+                <span>Sensibilidade</span>
+                <input id="sensitivityRange" type="range" min="35" max="85" value="64" />
+              </label>
+
+              <div class="toggle-row">
+                <label>
+                  <input type="checkbox" data-layer="mesh" checked />
+                  <span>Malha</span>
+                </label>
+                <label>
+                  <input type="checkbox" data-layer="pose" checked />
+                  <span>Pose</span>
+                </label>
+                <label>
+                  <input type="checkbox" data-layer="objects" checked />
+                  <span>Objetos</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="monitor-stage" aria-label="Visualizacao ao vivo">
+            <div class="video-shell">
+              <img src="assets/demo.gif" alt="Demonstracao do sistema de monitoramento com malha facial e boxes" />
+              <video id="cameraPreview" playsinline muted hidden></video>
+              <canvas id="overlayCanvas" aria-hidden="true"></canvas>
+
+              <div class="live-badge">
+                <span></span>
+                LIVE
+              </div>
+
+              <div class="metric-hud" aria-label="Metricas em tempo real">
+                <p>Score: <strong id="scoreValue">80.0</strong> <span id="scoreLabel">(Atento)</span></p>
+                <p>EAR: <strong id="earValue">0.286</strong></p>
+                <p>Yaw/Pitch/Roll: <strong id="poseValue">-2.1 / 4.7 / 0.8</strong></p>
+                <p>FPS: <strong id="fpsValue">29.8</strong></p>
+              </div>
+
+              <div class="attention-rail" aria-label="Barra de atencao">
+                <span id="attentionFill"></span>
+              </div>
+            </div>
+
+            <div class="alert-strip" id="alertStrip" role="status">Condicao estavel: motorista atento</div>
+          </div>
+        </section>
+
+        <section class="dashboard-section" id="dashboard" aria-labelledby="dashboard-title">
+          <div class="section-heading">
+            <p class="eyebrow">Dashboard inteligente</p>
+            <h2 id="dashboard-title">Telemetria de atencao e risco</h2>
+          </div>
+
+          <div class="kpi-grid">
+            <article class="kpi-card">
+              <span>Score medio</span>
+              <strong id="kpiScore">83.4</strong>
+              <small>+6.2 vs. janela anterior</small>
+            </article>
+            <article class="kpi-card">
+              <span>Eventos criticos</span>
+              <strong id="kpiEvents">03</strong>
+              <small>Celular e olhar fora</small>
+            </article>
+            <article class="kpi-card">
+              <span>EAR medio</span>
+              <strong id="kpiEar">0.287</strong>
+              <small>Dentro do limiar seguro</small>
+            </article>
+            <article class="kpi-card">
+              <span>FPS medio</span>
+              <strong id="kpiFps">29.8</strong>
+              <small>Pipeline em tempo real</small>
+            </article>
+          </div>
+
+          <div class="analytics-grid">
+            <article class="chart-panel">
+              <div class="panel-title">
+                <h3>Tendencia do score</h3>
+                <span>ultimos 60s</span>
+              </div>
+              <div class="score-chart" id="scoreChart" aria-label="Grafico de tendencia"></div>
+            </article>
+
+            <article class="event-panel">
+              <div class="panel-title">
+                <h3>Eventos ativos</h3>
+                <span id="riskState">baixo risco</span>
+              </div>
+              <ul class="event-list" id="eventList">
+                <li><span class="event-dot ok"></span>Face detectada com tracking estavel</li>
+                <li><span class="event-dot ok"></span>Pose dentro do limiar configurado</li>
+                <li><span class="event-dot warn"></span>Celular filtrado por proximidade facial</li>
+              </ul>
+            </article>
+
+            <article class="insight-panel">
+              <div class="panel-title">
+                <h3>Insights automaticos</h3>
+                <span>acao recomendada</span>
+              </div>
+              <p id="insightText">
+                A sessao segue estavel. Mantenha o peso de head pose acima de EAR em cenarios com oculos escuros.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section class="architecture-section" id="arquitetura" aria-labelledby="architecture-title">
+          <div class="section-heading">
+            <p class="eyebrow">Pipeline tecnico</p>
+            <h2 id="architecture-title">Arquitetura preparada para evolucao</h2>
+          </div>
+
+          <div class="pipeline">
+            <article>
+              <span>01</span>
+              <h3>Captura</h3>
+              <p>Camera ou video alimenta o pipeline OpenCV com espelhamento configuravel.</p>
+            </article>
+            <article>
+              <span>02</span>
+              <h3>Landmarks</h3>
+              <p>MediaPipe Face Mesh entrega 468 pontos com suavizacao temporal via EMA.</p>
+            </article>
+            <article>
+              <span>03</span>
+              <h3>Fusao</h3>
+              <p>EAR, yaw, pitch, roll, celular e maos compoem penalidades ponderadas.</p>
+            </article>
+            <article>
+              <span>04</span>
+              <h3>Score</h3>
+              <p>O Attention Score suavizado alimenta alertas, overlay e dashboard.</p>
+            </article>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <span>Desenvolvido por Matheus Siqueira</span>
+        <a href="https://www.matheussiqueira.dev" target="_blank" rel="noreferrer">www.matheussiqueira.dev</a>
+      </footer>
+    </div>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>

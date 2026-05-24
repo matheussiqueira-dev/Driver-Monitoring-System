@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from .config import DMSConfig
 from .ear import EyeState
-from .head_pose import HeadPose
 from .utils import ExponentialSmoother, clamp
+
+if TYPE_CHECKING:
+    from .head_pose import HeadPose
 
 
 @dataclass
@@ -27,7 +29,7 @@ class AttentionScorer:
     def update(
         self,
         eye_state: EyeState,
-        head_pose: Optional[HeadPose],
+        head_pose: Optional["HeadPose"],
         phone_present: bool,
         phone_near_face: bool,
         face_present: bool,
@@ -63,9 +65,12 @@ class AttentionScorer:
         else:
             self._offroad_start = None
 
-        if phone_present or phone_near_face:
+        if phone_near_face:
             penalty += self.config.penalty_phone
             events.append("Celular")
+        elif phone_present:
+            penalty += self.config.penalty_phone_suspected
+            events.append("Celular suspeito")
 
         bonus = self.config.bonus_stable if penalty == 0 else 0.0
         raw_score = self.config.score_base - penalty + bonus

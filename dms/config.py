@@ -53,6 +53,7 @@ class DMSConfig:
     score_ceiling: float = 100.0
 
     penalty_phone: float = 40.0
+    penalty_phone_suspected: float = 12.0
     penalty_offroad: float = 20.0
     penalty_drowsy: float = 30.0
     penalty_microsleep: float = 50.0

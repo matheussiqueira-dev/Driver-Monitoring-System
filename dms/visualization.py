@@ -24,6 +24,14 @@ def draw_phone_boxes(frame: np.ndarray, detections: List[Tuple[int, int, int, in
         cv2.putText(frame, label, (x1, max(20, y1 - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 140, 255), 2)
 
 
+def draw_face_box(frame: np.ndarray, bbox: Optional[Tuple[int, int, int, int]], label: str = "face") -> None:
+    if bbox is None:
+        return
+    x1, y1, x2, y2 = bbox
+    cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 160, 40), 2)
+    cv2.putText(frame, label, (x1, max(20, y1 - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 160, 40), 1)
+
+
 def draw_detection_boxes(frame: np.ndarray, detections) -> None:
     for det in detections:
         x1, y1, x2, y2 = det.bbox
@@ -41,6 +49,10 @@ def draw_metrics(
 ) -> None:
     x, y = 20, 30
     color = score_color(attention_state.score)
+    panel_h = 150 if head_pose is not None else 118
+    overlay = frame.copy()
+    cv2.rectangle(overlay, (10, 10), (520, panel_h), (12, 18, 24), -1)
+    cv2.addWeighted(overlay, 0.48, frame, 0.52, 0, frame)
     cv2.putText(
         frame,
         f"Score: {attention_state.score:5.1f} ({attention_state.label})",
@@ -70,7 +82,15 @@ def draw_metrics(
     cv2.putText(frame, f"FPS: {fps:4.1f}", (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (230, 230, 230), 1)
     y += 22
     if attention_state.events:
-        cv2.putText(frame, "Alertas: " + ", ".join(attention_state.events), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 200, 255), 2)
+        cv2.putText(
+            frame,
+            "Alertas: " + ", ".join(attention_state.events),
+            (x, y),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            (0, 200, 255),
+            2,
+        )
 
 
 def draw_attention_bar(frame: np.ndarray, score: float) -> None:
