@@ -1,4 +1,6 @@
 __pycache__/
 *.pyc
+.venv/
+.tmp/
 models/
 yolov8*.pt

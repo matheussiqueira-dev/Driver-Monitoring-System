@@ -29,7 +29,6 @@ class FaceMeshDetector:
         if not self._use_tasks:
             self._mp_face_mesh = mp.solutions.face_mesh
             self._mp_drawing = mp.solutions.drawing_utils
-            self._mp_styles = mp.solutions.drawing_styles
             self._mesh = self._mp_face_mesh.FaceMesh(
                 static_image_mode=False,
                 max_num_faces=config.max_faces,
@@ -110,23 +109,25 @@ class FaceMeshDetector:
         if not self._use_tasks:
             if not self._last_results.multi_face_landmarks:
                 return
+            mesh_spec = self._mp_drawing.DrawingSpec(color=(238, 211, 34), thickness=1, circle_radius=1)
+            contour_spec = self._mp_drawing.DrawingSpec(color=(252, 250, 248), thickness=1, circle_radius=1)
             for face_landmarks in self._last_results.multi_face_landmarks:
                 self._mp_drawing.draw_landmarks(
                     image=frame,
                     landmark_list=face_landmarks,
                     connections=self._mp_face_mesh.FACEMESH_TESSELATION,
                     landmark_drawing_spec=None,
-                    connection_drawing_spec=self._mp_styles.get_default_face_mesh_tesselation_style(),
+                    connection_drawing_spec=mesh_spec,
                 )
                 self._mp_drawing.draw_landmarks(
                     image=frame,
                     landmark_list=face_landmarks,
                     connections=self._mp_face_mesh.FACEMESH_CONTOURS,
                     landmark_drawing_spec=None,
-                    connection_drawing_spec=self._mp_styles.get_default_face_mesh_contours_style(),
+                    connection_drawing_spec=contour_spec,
                 )
         else:
             if self._last_landmarks is None:
                 return
             for (x, y, _) in self._last_landmarks:
-                cv2.circle(frame, (int(x), int(y)), 1, (80, 255, 80), -1)
+                cv2.circle(frame, (int(x), int(y)), 1, (238, 211, 34), -1)

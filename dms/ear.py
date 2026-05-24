@@ -2,18 +2,18 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass
-from typing import Deque, Optional, Tuple
+from typing import Deque, Optional, Sequence, Tuple
 
 import numpy as np
 
 from .config import DMSConfig
 from .utils import point_distance
 
-LEFT_EYE_IDX = [362, 385, 387, 263, 373, 380]
-RIGHT_EYE_IDX = [33, 160, 158, 133, 153, 144]
+LEFT_EYE_IDX: Tuple[int, int, int, int, int, int] = (362, 385, 387, 263, 373, 380)
+RIGHT_EYE_IDX: Tuple[int, int, int, int, int, int] = (33, 160, 158, 133, 153, 144)
 
 
-def compute_ear(landmarks: np.ndarray, indices: Tuple[int, int, int, int, int, int]) -> float:
+def compute_ear(landmarks: np.ndarray, indices: Sequence[int]) -> float:
     p1, p2, p3, p4, p5, p6 = [landmarks[i][:2] for i in indices]
     vertical_1 = point_distance(p2, p6)
     vertical_2 = point_distance(p3, p5)

@@ -3,25 +3,63 @@ from __future__ import annotations
 import argparse
 import sys
 import time
-from typing import Optional
+from types import SimpleNamespace
+from typing import Optional, Union
 
-import cv2
-
-from dms.attention import AttentionScorer
 from dms.camera import find_camera_index, list_camera_devices
 from dms.config import DMSConfig
-from dms.detection import HandDetector, YoloPhoneDetector
-from dms.ear import EyeStateTracker, LEFT_EYE_IDX, RIGHT_EYE_IDX, compute_ear
-from dms.face_mesh import FaceMeshDetector
-from dms.head_pose import HeadPoseEstimator
-from dms.utils import FPSCounter
-from dms.visualization import draw_attention_bar, draw_detection_boxes, draw_metrics, draw_phone_boxes
+
+Source = Union[int, str]
 
 
-def parse_source(value: str):
+def parse_source(value: str) -> Source:
     if value.isdigit():
         return int(value)
     return value
+
+
+def load_runtime_dependencies() -> SimpleNamespace:
+    try:
+        import cv2
+
+        from dms.attention import AttentionScorer
+        from dms.detection import HandDetector, YoloPhoneDetector
+        from dms.ear import EyeStateTracker, LEFT_EYE_IDX, RIGHT_EYE_IDX, compute_ear
+        from dms.face_mesh import FaceMeshDetector
+        from dms.head_pose import HeadPoseEstimator
+        from dms.utils import FPSCounter
+        from dms.visualization import (
+            draw_attention_bar,
+            draw_detection_boxes,
+            draw_metrics,
+            draw_phone_boxes,
+            draw_project_credits,
+        )
+    except ModuleNotFoundError as exc:
+        missing = exc.name or "dependencia"
+        raise RuntimeError(
+            f"Dependencia ausente: {missing}. Execute `python -m pip install -r requirements.txt` "
+            "antes de iniciar o monitoramento."
+        ) from exc
+
+    return SimpleNamespace(
+        cv2=cv2,
+        AttentionScorer=AttentionScorer,
+        HandDetector=HandDetector,
+        YoloPhoneDetector=YoloPhoneDetector,
+        EyeStateTracker=EyeStateTracker,
+        LEFT_EYE_IDX=LEFT_EYE_IDX,
+        RIGHT_EYE_IDX=RIGHT_EYE_IDX,
+        compute_ear=compute_ear,
+        FaceMeshDetector=FaceMeshDetector,
+        HeadPoseEstimator=HeadPoseEstimator,
+        FPSCounter=FPSCounter,
+        draw_attention_bar=draw_attention_bar,
+        draw_detection_boxes=draw_detection_boxes,
+        draw_metrics=draw_metrics,
+        draw_phone_boxes=draw_phone_boxes,
+        draw_project_credits=draw_project_credits,
+    )
 
 
 def is_phone_near_face(phone_bbox, face_bbox, frame_shape, pitch: Optional[float]) -> bool:
@@ -37,7 +75,7 @@ def is_phone_near_face(phone_bbox, face_bbox, frame_shape, pitch: Optional[float
     face_h = max(1.0, fy2 - fy1)
     dx = phone_cx - face_cx
     dy = phone_cy - face_cy
-    dist = (dx ** 2 + dy ** 2) ** 0.5
+    dist = (dx**2 + dy**2) ** 0.5
     near = dist < max(face_w, face_h) * 0.9
 
     frame_h = frame_shape[0]
@@ -59,6 +97,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--width", type=int, default=None, help="Capture width")
     parser.add_argument("--height", type=int, default=None, help="Capture height")
     parser.add_argument("--no-mirror", action="store_true", help="Disable mirroring the camera feed")
+    parser.add_argument("--headless", action="store_true", help="Run without opening an OpenCV window")
+    parser.add_argument("--max-frames", type=int, default=None, help="Stop after processing this number of frames")
     return parser
 
 
@@ -97,93 +137,119 @@ def main() -> None:
         source = index
         print(f"Usando camera {index}: {args.camera_name}")
 
+    try:
+        runtime = load_runtime_dependencies()
+    except RuntimeError as exc:
+        print(exc)
+        raise SystemExit(1) from exc
+
+    cv2 = runtime.cv2
     if isinstance(source, int) and sys.platform.startswith("win"):
         cap = cv2.VideoCapture(source, cv2.CAP_DSHOW)
     else:
         cap = cv2.VideoCapture(source)
+    if not cap.isOpened():
+        print(f"Nao foi possivel abrir a fonte de video: {source}")
+        raise SystemExit(1)
+
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.frame_width)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.frame_height)
 
-    face_mesh = FaceMeshDetector(config)
-    eye_tracker = EyeStateTracker(config)
-    head_pose_estimator = HeadPoseEstimator(config)
-    scorer = AttentionScorer(config)
-    fps_counter = FPSCounter()
+    try:
+        yolo_detector = None
+        if not args.no_yolo:
+            try:
+                yolo_detector = runtime.YoloPhoneDetector(config)
+            except RuntimeError as exc:
+                print(f"Nao foi possivel iniciar o YOLO: {exc}")
+                raise SystemExit(1) from exc
 
-    yolo_detector = None
-    if not args.no_yolo:
-        yolo_detector = YoloPhoneDetector(config)
+        face_mesh = runtime.FaceMeshDetector(config)
+        eye_tracker = runtime.EyeStateTracker(config)
+        head_pose_estimator = runtime.HeadPoseEstimator(config)
+        scorer = runtime.AttentionScorer(config)
+        fps_counter = runtime.FPSCounter()
 
-    hand_detector = None
-    if not args.no_hands:
-        hand_detector = HandDetector(config)
+        hand_detector = None
+        if not args.no_hands:
+            hand_detector = runtime.HandDetector(config)
 
-    while True:
-        ok, frame = cap.read()
-        if not ok:
-            break
+        frames_processed = 0
+        while True:
+            ok, frame = cap.read()
+            if not ok:
+                break
 
-        if config.mirror:
-            frame = cv2.flip(frame, 1)
+            if config.mirror:
+                frame = cv2.flip(frame, 1)
 
-        timestamp = time.time()
-        timestamp_ms = int(timestamp * 1000)
-        face_result = face_mesh.process(frame, timestamp_ms)
+            timestamp = time.time()
+            timestamp_ms = int(timestamp * 1000)
+            face_result = face_mesh.process(frame, timestamp_ms)
 
-        ear = None
-        head_pose = None
-        if face_result.face_present:
-            left_ear = compute_ear(face_result.landmarks, LEFT_EYE_IDX)
-            right_ear = compute_ear(face_result.landmarks, RIGHT_EYE_IDX)
-            ear = (left_ear + right_ear) / 2.0
-            head_pose = head_pose_estimator.estimate(face_result.landmarks, frame.shape[:2])
+            ear = None
+            head_pose = None
+            if face_result.face_present and face_result.landmarks is not None:
+                left_ear = runtime.compute_ear(face_result.landmarks, runtime.LEFT_EYE_IDX)
+                right_ear = runtime.compute_ear(face_result.landmarks, runtime.RIGHT_EYE_IDX)
+                ear = (left_ear + right_ear) / 2.0
+                head_pose = head_pose_estimator.estimate(face_result.landmarks, frame.shape[:2])
 
-        eye_state = eye_tracker.update(ear, timestamp)
+            eye_state = eye_tracker.update(ear, timestamp)
 
-        detections = None
-        phone_present = False
-        phone_near_face = False
-        if yolo_detector is not None:
-            detections = yolo_detector.detect(frame)
-            if detections.phones:
-                phone_present = True
-                pitch = head_pose.pitch if head_pose else None
-                phone_near_face = any(
-                    is_phone_near_face(det.bbox, face_result.bbox, frame.shape, pitch)
-                    for det in detections.phones
-                )
+            detections = None
+            phone_present = False
+            phone_near_face = False
+            if yolo_detector is not None:
+                detections = yolo_detector.detect(frame)
+                if detections.phones:
+                    phone_present = True
+                    pitch = head_pose.pitch if head_pose else None
+                    phone_near_face = any(
+                        is_phone_near_face(det.bbox, face_result.bbox, frame.shape, pitch)
+                        for det in detections.phones
+                    )
 
-        hand_boxes = []
-        if hand_detector is not None:
-            hand_boxes = hand_detector.detect(frame, timestamp_ms)
+            hand_boxes = []
+            if hand_detector is not None:
+                hand_boxes = hand_detector.detect(frame, timestamp_ms)
 
-        attention_state = scorer.update(
-            eye_state=eye_state,
-            head_pose=head_pose,
-            phone_present=phone_present,
-            phone_near_face=phone_near_face,
-            face_present=face_result.face_present,
-            timestamp=timestamp,
-        )
+            attention_state = scorer.update(
+                eye_state=eye_state,
+                head_pose=head_pose,
+                phone_present=phone_present,
+                phone_near_face=phone_near_face,
+                face_present=face_result.face_present,
+                timestamp=timestamp,
+            )
 
-        if config.show_mesh:
-            face_mesh.draw(frame)
-        if detections is not None:
-            draw_detection_boxes(frame, detections.all)
-        if hand_boxes:
-            draw_phone_boxes(frame, hand_boxes, "hand")
+            if config.show_mesh:
+                face_mesh.draw(frame)
+            if detections is not None:
+                runtime.draw_detection_boxes(frame, detections.all)
+            if hand_boxes:
+                runtime.draw_phone_boxes(frame, hand_boxes, "hand")
 
-        fps = fps_counter.update()
-        draw_attention_bar(frame, attention_state.score)
-        draw_metrics(frame, eye_state, head_pose, attention_state, fps)
+            fps = fps_counter.update()
+            runtime.draw_attention_bar(frame, attention_state.score)
+            runtime.draw_metrics(frame, eye_state, head_pose, attention_state, fps)
+            runtime.draw_project_credits(frame)
 
-        cv2.imshow("Driver Monitoring System", frame)
-        key = cv2.waitKey(1) & 0xFF
-        if key in (27, ord("q")):
-            break
+            frames_processed += 1
+            if args.headless:
+                if args.max_frames is not None and frames_processed >= args.max_frames:
+                    break
+                continue
 
-    cap.release()
-    cv2.destroyAllWindows()
+            cv2.imshow("Driver Monitoring System", frame)
+            key = cv2.waitKey(1) & 0xFF
+            if key in (27, ord("q")):
+                break
+            if args.max_frames is not None and frames_processed >= args.max_frames:
+                break
+    finally:
+        cap.release()
+        cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
