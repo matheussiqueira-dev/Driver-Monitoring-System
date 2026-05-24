@@ -321,6 +321,11 @@ h3 {
   filter: saturate(1.04) contrast(1.02);
 }
 
+.video-shell video.is-mirrored {
+  transform: scaleX(-1);
+  transform-origin: center;
+}
+
 .video-shell canvas {
   z-index: 2;
   pointer-events: none;
@@ -328,7 +333,8 @@ h3 {
 
 .live-badge,
 .metric-hud,
-.attention-rail {
+.attention-rail,
+.tracking-debug {
   position: absolute;
   z-index: 3;
 }
@@ -399,6 +405,25 @@ h3 {
   transition:
     height 300ms ease,
     background 300ms ease;
+}
+
+.tracking-debug {
+  right: 52px;
+  bottom: 12px;
+  max-width: min(360px, calc(100% - 76px));
+  max-height: 210px;
+  margin: 0;
+  padding: 10px 12px;
+  overflow: hidden;
+  border: 1px solid rgba(59, 216, 255, 0.28);
+  border-radius: 8px;
+  background: rgba(2, 8, 6, 0.72);
+  color: #c9f7e5;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  backdrop-filter: blur(8px);
 }
 
 .alert-strip {
