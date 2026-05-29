@@ -29,6 +29,22 @@ function loadScript(src) {
   document.head.appendChild(script);
 }
 
+async function loadVercelInsightsIfAvailable() {
+  const src = "/_vercel/insights/script.js";
+  try {
+    const response = await fetch(src, {
+      method: "HEAD",
+      cache: "no-store",
+    });
+    const contentType = response.headers.get("content-type") || "";
+    if (response.ok && contentType.includes("javascript")) {
+      loadScript(src);
+    }
+  } catch {
+    // Analytics is optional and should never block the product experience.
+  }
+}
+
 function flushPerformanceMetric(name, value, rating = "observed") {
   trackEvent("web_vital", {
     metric: name,
@@ -104,7 +120,7 @@ export function initAnalytics() {
   });
 
   if (isProductionLikeHost()) {
-    loadScript("/_vercel/insights/script.js");
+    loadVercelInsightsIfAvailable();
   }
 
   observePerformance();
