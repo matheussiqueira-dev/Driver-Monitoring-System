@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://driver-monitoring-system-two.vercel.app/</loc>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://driver-monitoring-system-two.vercel.app/monitor</loc>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://driver-monitoring-system-two.vercel.app/dashboard</loc>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://driver-monitoring-system-two.vercel.app/arquitetura</loc>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://driver-monitoring-system-two.vercel.app/produto</loc>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://driver-monitoring-system-two.vercel.app/sobre</loc>
+    <priority>0.7</priority>
+  </url>
+</urlset>

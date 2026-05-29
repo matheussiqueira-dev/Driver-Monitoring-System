@@ -6,11 +6,12 @@
   "scripts": {
     "build": "node scripts/build-static.js",
     "dev": "python -m http.server 3000",
-    "preview": "python -m http.server 3000",
-    "test": "python -m unittest discover -s tests"
+    "preview": "npm run build && python -m http.server 3000 --directory dist",
+    "test": "python -m unittest discover -s tests",
+    "validate": "npm run build && node --check app.js && node --check analytics.js && node --check pwa.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": "20.x"
   },
   "keywords": [
     "computer-vision",
@@ -19,5 +20,10 @@
     "opencv",
     "vercel"
   ],
+  "homepage": "https://driver-monitoring-system-two.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/matheussiqueira-dev/Driver-Monitoring-System.git"
+  },
   "author": "Matheus Siqueira"
 }

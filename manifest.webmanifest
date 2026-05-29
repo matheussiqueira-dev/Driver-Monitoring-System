@@ -1,0 +1,50 @@
+{
+  "name": "Driver Monitoring System",
+  "short_name": "DMS",
+  "description": "Sistema de Monitoramento do Motorista com Face Mesh, EAR, Head Pose, deteccao de celular e dashboard inteligente.",
+  "lang": "pt-BR",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#07110f",
+  "theme_color": "#07110f",
+  "categories": ["productivity", "utilities", "developer"],
+  "icons": [
+    {
+      "src": "/assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/assets/og-image.png",
+      "sizes": "1200x630",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Interface de monitoramento em tempo real"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Monitor",
+      "short_name": "Monitor",
+      "url": "/monitor",
+      "description": "Abrir visualizacao de monitoramento"
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "url": "/dashboard",
+      "description": "Abrir dashboard inteligente"
+    }
+  ]
+}

@@ -7,20 +7,61 @@
       name="description"
       content="Sistema de Monitoramento do Motorista em tempo real com Face Mesh, EAR, Head Pose, Object Detection e dashboard inteligente."
     />
+    <meta name="keywords" content="driver monitoring system, computer vision, face mesh, head pose, EAR, OpenCV, MediaPipe, Vercel" />
+    <meta name="robots" content="index, follow" />
     <meta name="author" content="Matheus Siqueira" />
     <meta name="theme-color" content="#07110f" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="DMS" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="canonical" href="https://driver-monitoring-system-two.vercel.app/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:url" content="https://driver-monitoring-system-two.vercel.app/" />
+    <meta property="og:site_name" content="Driver Monitoring System" />
     <meta property="og:title" content="Driver Monitoring System | Matheus Siqueira" />
     <meta
       property="og:description"
       content="Visao Computacional e IA para score continuo de atencao, alertas e dashboard de telemetria."
     />
-    <meta property="og:image" content="assets/demo.gif" />
+    <meta property="og:image" content="https://driver-monitoring-system-two.vercel.app/assets/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Driver Monitoring System | Matheus Siqueira" />
+    <meta
+      name="twitter:description"
+      content="DMS em tempo real com Face Mesh, Head Pose, EAR, deteccao de celular e dashboard inteligente."
+    />
+    <meta name="twitter:image" content="https://driver-monitoring-system-two.vercel.app/assets/og-image.png" />
     <title>Driver Monitoring System | Matheus Siqueira</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="assets/icon-192.png" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link rel="preconnect" href="https://storage.googleapis.com" crossorigin />
     <link rel="preload" href="assets/demo.gif" as="image" />
     <link rel="stylesheet" href="styles.css" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Driver Monitoring System",
+        "applicationCategory": "SafetyApplication",
+        "operatingSystem": "Web, Windows, Linux, macOS",
+        "description": "Sistema de Monitoramento do Motorista em tempo real com Visao Computacional, Face Mesh, EAR, Head Pose e dashboard inteligente.",
+        "author": {
+          "@type": "Person",
+          "name": "Matheus Siqueira",
+          "url": "https://www.matheussiqueira.dev",
+          "sameAs": ["https://www.linkedin.com/in/matheussiqueira-dev"]
+        }
+      }
+    </script>
   </head>
   <body>
+    <a class="skip-link" href="#monitor">Ir para o monitoramento</a>
     <div class="app-shell">
       <header class="topbar">
         <a class="brand" href="#monitor" aria-label="Driver Monitoring System">
@@ -35,6 +76,8 @@
           <a href="#monitor">Monitor</a>
           <a href="#dashboard">Dashboard</a>
           <a href="#arquitetura">Arquitetura</a>
+          <a href="#produto">Produto</a>
+          <a href="#sobre">Sobre</a>
         </nav>
 
         <a class="portfolio-link" href="https://www.matheussiqueira.dev" target="_blank" rel="noreferrer">
@@ -60,9 +103,9 @@
 
             <div class="control-panel" aria-label="Controles da visualizacao">
               <div class="segmented-control" role="group" aria-label="Modo">
-                <button class="source-button is-active" type="button" data-mode="demo">Demo</button>
-                <button class="source-button" type="button" data-mode="camera">Camera</button>
-                <button class="source-button" type="button" data-mode="review">Review</button>
+                <button class="source-button is-active" type="button" data-mode="demo" aria-pressed="true">Demo</button>
+                <button class="source-button" type="button" data-mode="camera" aria-pressed="false">Camera</button>
+                <button class="source-button" type="button" data-mode="review" aria-pressed="false">Review</button>
               </div>
 
               <label class="range-control" for="sensitivityRange">
@@ -176,6 +219,24 @@
               </p>
             </article>
           </div>
+
+          <div class="ops-grid" aria-label="Indicadores operacionais">
+            <article>
+              <span>Tracking</span>
+              <strong>Face Mesh ativo</strong>
+              <p>Landmarks, pose e EAR atualizados no mesmo frame do video em modo Camera.</p>
+            </article>
+            <article>
+              <span>Deploy</span>
+              <strong>Static Edge</strong>
+              <p>Interface preparada para Vercel com assets imutaveis, headers e rotas limpas.</p>
+            </article>
+            <article>
+              <span>Observabilidade</span>
+              <strong>Eventos prontos</strong>
+              <p>Hooks para Vercel Analytics, Web Vitals, erros de cliente e eventos do DMS.</p>
+            </article>
+          </div>
         </section>
 
         <section class="architecture-section" id="arquitetura" aria-labelledby="architecture-title">
@@ -207,11 +268,57 @@
             </article>
           </div>
         </section>
+
+        <section class="product-section" id="produto" aria-labelledby="product-title">
+          <div class="section-heading">
+            <p class="eyebrow">Produto</p>
+            <h2 id="product-title">Base pronta para evolucao real</h2>
+          </div>
+
+          <div class="product-grid">
+            <article>
+              <span class="card-index">UX</span>
+              <h3>Monitor operacional</h3>
+              <p>Camera, demo e review convivem em uma interface unica com controles diretos e feedback visual continuo.</p>
+            </article>
+            <article>
+              <span class="card-index">AI</span>
+              <h3>Pipeline extensivel</h3>
+              <p>Face Mesh, EAR, pose, celular e maos foram isolados para permitir modelos customizados e telemetria futura.</p>
+            </article>
+            <article>
+              <span class="card-index">Cloud</span>
+              <h3>Entrega profissional</h3>
+              <p>PWA, SEO, analytics, cache e headers de seguranca deixam a apresentacao pronta para producao.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="about-section" id="sobre" aria-labelledby="about-title">
+          <div class="about-copy">
+            <p class="eyebrow">Sobre o projeto</p>
+            <h2 id="about-title">Computer Vision aplicada a seguranca do motorista</h2>
+            <p>
+              Este DMS demonstra arquitetura de produto para inferencia visual em tempo real, combinando experiencia
+              web, pipeline Python/OpenCV e criterios praticos de estabilidade, performance e deploy.
+            </p>
+          </div>
+
+          <aside class="credit-card" aria-label="Creditos profissionais">
+            <span>Desenvolvido por</span>
+            <strong>Matheus Siqueira</strong>
+            <a href="https://www.matheussiqueira.dev" target="_blank" rel="noreferrer">www.matheussiqueira.dev</a>
+            <a href="https://www.linkedin.com/in/matheussiqueira-dev" target="_blank" rel="noreferrer">LinkedIn profissional</a>
+          </aside>
+        </section>
       </main>
 
       <footer class="footer">
         <span>Desenvolvido por Matheus Siqueira</span>
-        <a href="https://www.matheussiqueira.dev" target="_blank" rel="noreferrer">www.matheussiqueira.dev</a>
+        <span class="footer-links">
+          <a href="https://www.matheussiqueira.dev" target="_blank" rel="noreferrer">www.matheussiqueira.dev</a>
+          <a href="https://www.linkedin.com/in/matheussiqueira-dev" target="_blank" rel="noreferrer">LinkedIn</a>
+        </span>
       </footer>
     </div>
 

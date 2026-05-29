@@ -1,4 +1,9 @@
 import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35";
+import { initAnalytics, trackEvent } from "./analytics.js";
+import { registerPwa } from "./pwa.js";
+
+initAnalytics();
+registerPwa(trackEvent);
 
 const FACE_MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task";
@@ -296,10 +301,12 @@ class FaceMeshProcessor {
         ...(FaceLandmarker.FACE_LANDMARKS_LIPS || []),
       ];
       state.faceMeshStatus = "ready";
+      trackEvent("face_mesh_ready", { runtime: "web" });
       return this.faceLandmarker;
     })().catch((error) => {
       state.faceMeshStatus = "error";
       this.initializing = null;
+      trackEvent("face_mesh_error", { message: error.message || "initialization failed" });
       throw error;
     });
 
@@ -609,9 +616,15 @@ function updateDom(metrics, time) {
     [metrics.offroad ? "warn" : "ok", metrics.offroad ? "Head pose acima do limiar" : "Pose dentro do limiar configurado"],
     [state.mode === "camera" ? "warn" : metrics.phoneRisk ? "danger" : "warn", objectStatus],
   ];
-  elements.eventList.innerHTML = events
-    .map(([level, text]) => `<li><span class="event-dot ${level}"></span>${text}</li>`)
-    .join("");
+  elements.eventList.replaceChildren(
+    ...events.map(([level, text]) => {
+      const item = document.createElement("li");
+      const dot = document.createElement("span");
+      dot.className = `event-dot ${level}`;
+      item.append(dot, document.createTextNode(text));
+      return item;
+    }),
+  );
 
   elements.insightText.textContent =
     state.mode === "camera"
@@ -714,6 +727,10 @@ async function startCamera() {
   elements.cameraPreview.classList.toggle("is-mirrored", state.mirrored);
   await elements.cameraPreview.play();
   state.cameraStatus = "ready";
+  trackEvent("camera_ready", {
+    width: elements.cameraPreview.videoWidth || 0,
+    height: elements.cameraPreview.videoHeight || 0,
+  });
 }
 
 function stopCamera() {
@@ -743,9 +760,14 @@ async function setMode(mode) {
     await Promise.all([startCamera(), faceProcessor.ensureReady()]);
   } catch (error) {
     console.error(error);
+    trackEvent("camera_start_failed", { message: error.message || "unknown" });
     stopCamera();
     state.mode = "demo";
-    document.querySelectorAll(".source-button").forEach((item) => item.classList.toggle("is-active", item.dataset.mode === "demo"));
+    document.querySelectorAll(".source-button").forEach((item) => {
+      const active = item.dataset.mode === "demo";
+      item.classList.toggle("is-active", active);
+      item.setAttribute("aria-pressed", String(active));
+    });
     elements.alertStrip.textContent = "Nao foi possivel iniciar camera/Face Mesh. Demo mantida ativa.";
     elements.alertStrip.classList.add("is-warning");
   }
@@ -753,8 +775,12 @@ async function setMode(mode) {
 
 document.querySelectorAll(".source-button").forEach((button) => {
   button.addEventListener("click", async () => {
-    document.querySelectorAll(".source-button").forEach((item) => item.classList.remove("is-active"));
-    button.classList.add("is-active");
+    document.querySelectorAll(".source-button").forEach((item) => {
+      const active = item === button;
+      item.classList.toggle("is-active", active);
+      item.setAttribute("aria-pressed", String(active));
+    });
+    trackEvent("source_mode_changed", { mode: button.dataset.mode });
     await setMode(button.dataset.mode);
   });
 });
@@ -762,6 +788,10 @@ document.querySelectorAll(".source-button").forEach((button) => {
 document.querySelectorAll("[data-layer]").forEach((checkbox) => {
   checkbox.addEventListener("change", () => {
     state.layers[checkbox.dataset.layer] = checkbox.checked;
+    trackEvent("overlay_layer_toggled", {
+      layer: checkbox.dataset.layer,
+      enabled: checkbox.checked,
+    });
   });
 });
 

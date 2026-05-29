@@ -1,32 +1,41 @@
 # Driver Monitoring System (DMS)
 
-Sistema de Monitoramento do Motorista em tempo real usando Visao Computacional e IA. Detecta sonolencia, distracao, direcao do olhar e uso de celular ao volante com Face Mesh, Eye Aspect Ratio, Head Pose Estimation e Object Detection, gerando um Attention Score continuo.
+Sistema de Monitoramento do Motorista em tempo real usando Visao Computacional e IA. O projeto combina uma interface web profissional para portfolio e deploy na Vercel com um pipeline Python/OpenCV local para camera, Face Mesh, Eye Aspect Ratio, Head Pose Estimation, deteccao de celular e score continuo de atencao.
 
-![Demo](assets/demo.gif)
+![Driver Monitoring System](assets/og-image.png)
 
 ## Desenvolvedor
 
-- Desenvolvido por Matheus Siqueira
-- Portfolio oficial: [www.matheussiqueira.dev](https://www.matheussiqueira.dev)
+- Desenvolvido por **Matheus Siqueira**
+- Portfolio: [www.matheussiqueira.dev](https://www.matheussiqueira.dev)
+- LinkedIn: [matheussiqueira-dev](https://www.linkedin.com/in/matheussiqueira-dev)
 
-## Entregas do projeto
+Os creditos profissionais fazem parte permanente da interface e da documentacao do projeto.
 
-- Pipeline Python/OpenCV para processamento em tempo real.
-- Overlay visual com malha facial, boxes, metricas, score e alertas.
-- Interface web estatica para portfolio e deploy na Vercel.
-- Dashboard inteligente com KPIs, tendencias, eventos e insights.
-- Regras mais robustas para reduzir falsos positivos de celular.
-- Configuracao `vercel.json` com cache de assets e rotas limpas.
+## Visao Geral
 
-## Principais recursos
+O DMS foi estruturado em duas superficies complementares:
 
-- Face Mesh (MediaPipe) com 468 landmarks e suavizacao por EMA.
-- Eye Aspect Ratio (EAR) para piscadas, sonolencia e microssono.
-- Head Pose Estimation com yaw, pitch e roll via `solvePnP`.
-- Deteccao de celular por YOLO (Ultralytics).
+- **Web App estatico**: experiencia de produto para portfolio, com demo visual, camera em tempo real no navegador, Face Landmarker via MediaPipe Tasks Vision, dashboard inteligente, PWA, SEO, analytics e configuracao para Vercel.
+- **Engine local Python**: pipeline OpenCV para uso com camera/video, MediaPipe Face Mesh, EAR, solvePnP para pose, YOLO/Ultralytics para celular, MediaPipe Hands como fallback e overlay OpenCV.
+
+Essa separacao preserva o deploy simples na Vercel e evita que `main.py` seja interpretado como uma Python Function, enquanto mantem o pipeline tecnico completo no repositorio.
+
+## Funcionalidades
+
+- Face Mesh em tempo real com landmarks faciais.
+- Conversao correta de landmarks normalizados para pixels.
+- Mapeamento do overlay considerando tamanho real do video, canvas, `object-fit: cover`, `devicePixelRatio` e espelhamento.
+- EAR para sonolencia e microssono.
+- Head Pose com yaw, pitch e roll.
+- Deteccao de celular por YOLO no pipeline Python.
 - Fallback de maos com MediaPipe Hands.
-- Score de atencao 0-100 com suavizacao temporal.
-- Dashboard responsivo preparado para integracao futura com dados reais.
+- Attention Score 0-100 com suavizacao temporal.
+- Dashboard com KPIs, tendencia, eventos e insights acionaveis.
+- PWA instalavel com manifest, service worker, icones e cache offline do app shell.
+- SEO tecnico com Open Graph, Twitter Cards, canonical, sitemap, robots e structured data.
+- Observabilidade preparada com Vercel Analytics, eventos do DMS, Web Vitals e captura de erros de cliente.
+- Headers de seguranca e cache configurados em `vercel.json`.
 
 ## Arquitetura
 
@@ -34,6 +43,9 @@ Sistema de Monitoramento do Motorista em tempo real usando Visao Computacional e
 Driver-Monitoring-System/
   assets/
     demo.gif
+    icon-192.png
+    icon-512.png
+    og-image.png
   dms/
     attention.py
     camera.py
@@ -43,32 +55,68 @@ Driver-Monitoring-System/
     face_mesh.py
     head_pose.py
     mediapipe_utils.py
+    overlay.py
     spatial.py
     utils.py
     visualization.py
+  scripts/
+    build-static.js
   tests/
+  analytics.js
   app.js
   index.html
-  main.py
-  package.json
-  requirements.txt
+  manifest.webmanifest
+  pwa.js
+  robots.txt
+  service-worker.js
+  sitemap.xml
   styles.css
+  main.py
   vercel.json
 ```
+
+## Stack
+
+- Frontend: HTML, CSS, JavaScript Modules, Canvas API.
+- Web Computer Vision: MediaPipe Tasks Vision Face Landmarker.
+- Runtime local: Python, OpenCV, MediaPipe, NumPy.
+- Object Detection: Ultralytics YOLO.
+- Deploy: Vercel Static Output.
+- Qualidade: unittest, build estatico, browser verification.
 
 ## Pipeline Python
 
 1. Captura de frame por camera ou video.
-2. Face Mesh para landmarks faciais.
-3. Calculo de EAR e estimativa de pose da cabeca.
-4. YOLO para celular e MediaPipe Hands como fallback.
-5. Fusao de sinais no `AttentionScorer`.
-6. Renderizacao do overlay em OpenCV.
-7. Score continuo, barra animada e alertas.
+2. Espelhamento opcional da camera.
+3. MediaPipe Face Mesh para landmarks.
+4. EAR para olhos e sonolencia.
+5. solvePnP para yaw, pitch e roll.
+6. YOLO para celular e MediaPipe Hands como fallback.
+7. Fusao no `AttentionScorer`.
+8. Overlay OpenCV com malha, boxes, score, metricas e alertas.
 
-## Como rodar o DMS em tempo real
+## Execucao Local da Interface Web
 
-Recomendado: Python 3.9 a 3.12. Algumas versoes do MediaPipe podem nao oferecer wheels para Python 3.13.
+```bash
+npm run dev
+```
+
+Abra:
+
+```text
+http://localhost:3000
+```
+
+Build e preview da versao final:
+
+```bash
+npm run build
+npm run preview
+```
+
+## Execucao Local do DMS Python
+
+Recomendado: Python 3.9 a 3.12.
 
 ```bash
 python -m venv .venv
@@ -97,63 +145,75 @@ Opcoes uteis:
 python main.py --source 0 --no-mirror
 python main.py --weights pesos_custom.pt --device cuda
 python main.py --no-yolo --no-hands --no-mesh
+python main.py --no-face-overlay --no-debug-overlay
 ```
 
-## Interface web e Vercel
+## Variaveis de Ambiente
 
-A interface web e estatica e pode ser publicada diretamente na Vercel. Ela usa o `assets/demo.gif` e um overlay em canvas para demonstrar o comportamento visual do sistema, com dados simulados desacoplados para KPIs e insights.
+Nenhuma variavel e obrigatoria para a interface web estatica.
 
-Execucao local:
+Para observabilidade:
 
-```bash
-python -m http.server 3000
-```
+- Vercel Web Analytics deve ser habilitado no dashboard do projeto.
+- Google Analytics pode ser conectado futuramente sem alterar a arquitetura, usando o adaptador em `analytics.js`.
 
-Abra:
+## Deploy na Vercel
 
-```text
-http://localhost:3000
-```
+O projeto usa `vercel.json` com:
 
-Validacao de build estatico:
+- `framework: null`
+- `buildCommand: npm run build`
+- `outputDirectory: dist`
+- rotas limpas para `/monitor`, `/dashboard`, `/arquitetura`, `/produto` e `/sobre`
+- headers de cache, seguranca, PWA e service worker
 
-```bash
-npm run build
-```
-
-O build gera a pasta `dist/`, que e a saida configurada para a Vercel. O arquivo `.vercelignore` envia apenas a superficie web estatica para deploy e impede que `main.py` seja interpretado como Python Function.
-
-Deploy na Vercel:
+Deploy:
 
 ```bash
 vercel
 vercel --prod
 ```
 
-Variaveis de ambiente:
+Validacao local antes do deploy:
 
-```text
-Nenhuma variavel e obrigatoria para a interface web estatica.
+```bash
+npm run validate
 ```
 
-## Dashboard
+## PWA
 
-O dashboard inclui:
+O app inclui:
 
-- Score medio e tendencia dos ultimos segundos.
-- Eventos criticos e classificacao de risco.
-- EAR medio e FPS medio.
-- Lista de eventos ativos.
-- Insight automatico contextual.
-- Estrutura pronta para substituir mock data por API, websocket ou telemetria real.
+- `manifest.webmanifest`
+- icones `192x192` e `512x512`
+- service worker com cache do app shell
+- suporte a instalacao desktop/mobile
+- fallback offline para navegacao principal
 
-## Tratamento de desafios
+## SEO Tecnico
 
-- Iluminacao variavel: landmarks robustos e ajuste de `detection_confidence`/`tracking_confidence`.
-- Oculos escuros: reduzir dependencia do EAR e priorizar head pose.
-- Oclusao parcial: suavizacao com EMA nos landmarks.
-- Falsos positivos de celular: filtro por area minima, proximidade do rosto e pitch para baixo.
-- Sensibilidade vs. robustez: ajuste de `drowsy_time_s`, `offroad_time_s` e penalidades em `DMSConfig`.
+Implementado:
+
+- meta description e keywords
+- canonical URL
+- Open Graph
+- Twitter Cards
+- `robots.txt`
+- `sitemap.xml`
+- structured data `WebApplication`
+- imagem social `assets/og-image.png`
+
+## Seguranca
+
+Implementado em `vercel.json`:
+
+- `X-Content-Type-Options`
+- `Referrer-Policy`
+- `Permissions-Policy`
+- `X-Frame-Options`
+- `Strict-Transport-Security`
+- `Content-Security-Policy`
+- cache diferenciado para assets e service worker
 
 ## Testes
 
@@ -161,8 +221,26 @@ O dashboard inclui:
 python -m unittest discover -s tests
 ```
 
-Os testes atuais cobrem regras de score e filtro espacial de celular. Para evolucao, recomenda-se adicionar testes E2E da interface e cenarios com videos curtos anotados.
+Cobertura atual:
+
+- score de atencao
+- filtro espacial de celular
+- conversao de landmarks normalizados para pixels
+- ancora facial
+- escala e roll do overlay
+- suavizacao EMA
+- hold/fade quando a face desaparece
+
+## Roadmap
+
+- Integrar telemetria real via WebSocket ou API.
+- Adicionar E2E com Playwright para fluxos Camera/Dashboard/PWA.
+- Treinar YOLO customizado com classes `cell phone` e `hand`.
+- Adicionar estimativa de gaze.
+- Detectar bocejo por abertura de boca.
+- Adaptar thresholds por usuario.
+- Exportar relatorios de sessoes.
 
 ## Aviso
 
-Este projeto e para fins educacionais, demonstrativos e de portfolio. Sistemas automotivos reais exigem testes extensivos, redundancia e certificacoes especificas.
+Este projeto e para fins educacionais, demonstrativos e de portfolio. Sistemas automotivos reais exigem validacao extensiva, redundancia, datasets representativos e certificacoes especificas.

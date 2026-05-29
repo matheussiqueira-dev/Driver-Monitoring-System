@@ -7,7 +7,13 @@
 !index.html
 !styles.css
 !app.js
+!analytics.js
+!pwa.js
 !favicon.svg
+!manifest.webmanifest
+!service-worker.js
+!robots.txt
+!sitemap.xml
 !assets/
 !assets/**
 !scripts/
