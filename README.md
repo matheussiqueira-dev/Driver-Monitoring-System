@@ -36,6 +36,7 @@ Essa separacao preserva o deploy simples na Vercel e evita que `main.py` seja in
 - SEO tecnico com Open Graph, Twitter Cards, canonical, sitemap, robots e structured data.
 - Observabilidade preparada com Vercel Analytics, eventos do DMS, Web Vitals e captura de erros de cliente.
 - Headers de seguranca e cache configurados em `vercel.json`.
+- Auditoria tecnica versionada em [`docs/PRODUCTION_AUDIT.md`](docs/PRODUCTION_AUDIT.md).
 
 ## Arquitetura
 
@@ -62,6 +63,8 @@ Driver-Monitoring-System/
   scripts/
     build-static.js
   tests/
+  docs/
+    PRODUCTION_AUDIT.md
   analytics.js
   app.js
   index.html
@@ -155,6 +158,7 @@ Nenhuma variavel e obrigatoria para a interface web estatica.
 Para observabilidade:
 
 - Vercel Web Analytics deve ser habilitado no dashboard do projeto.
+- Speed Insights e carregado por meta tag quando o script da Vercel estiver disponivel para o projeto.
 - Google Analytics pode ser conectado futuramente sem alterar a arquitetura, usando o adaptador em `analytics.js`.
 
 ## Deploy na Vercel
@@ -162,7 +166,7 @@ Para observabilidade:
 O projeto usa `vercel.json` com:
 
 - `framework: null`
-- `buildCommand: npm run build`
+- `buildCommand: node scripts/build-static.js`
 - `outputDirectory: dist`
 - rotas limpas para `/monitor`, `/dashboard`, `/arquitetura`, `/produto` e `/sobre`
 - headers de cache, seguranca, PWA e service worker

@@ -29,8 +29,8 @@ function loadScript(src) {
   document.head.appendChild(script);
 }
 
-function getVercelInsightsSrc() {
-  const meta = document.querySelector('meta[name="vercel-insights-src"]');
+function getMetaContent(name) {
+  const meta = document.querySelector(`meta[name="${name}"]`);
   return meta?.getAttribute("content") || "";
 }
 
@@ -109,9 +109,13 @@ export function initAnalytics() {
   });
 
   if (isProductionLikeHost()) {
-    const insightsSrc = getVercelInsightsSrc();
+    const insightsSrc = getMetaContent("vercel-insights-src");
+    const speedInsightsSrc = getMetaContent("vercel-speed-insights-src");
     if (insightsSrc) {
       loadScript(insightsSrc);
+    }
+    if (speedInsightsSrc) {
+      loadScript(speedInsightsSrc);
     }
   }
 
