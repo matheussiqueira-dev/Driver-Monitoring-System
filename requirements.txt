@@ -1,6 +1,7 @@
-opencv-python>=4.8.0
-mediapipe>=0.10.0
-numpy>=1.23.0
-ultralytics>=8.0.0
-torch>=2.0.0
-torchvision>=0.15.0
+# Python 3.12 (versoes validadas com os testes e o main.py)
+opencv-python==5.0.0.93
+mediapipe==1.1.0
+numpy==2.5.4
+ultralytics==8.4.175
+torch==2.14.1
+torchvision==0.29.1
