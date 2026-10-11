@@ -11,7 +11,7 @@
     "validate": "npm run build && node --check app.js && node --check analytics.js && node --check pwa.js"
   },
   "engines": {
-    "node": "20.x"
+    "node": "24.x"
   },
   "keywords": [
     "computer-vision",
