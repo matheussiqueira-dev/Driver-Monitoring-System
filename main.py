@@ -88,6 +88,9 @@ def main() -> None:
         cap = cv2.VideoCapture(source, cv2.CAP_DSHOW)
     else:
         cap = cv2.VideoCapture(source)
+    if not cap.isOpened():
+        print(f"[DMS] Nao foi possivel abrir a fonte de video: {source}")
+        sys.exit(1)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.frame_width)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.frame_height)
 
