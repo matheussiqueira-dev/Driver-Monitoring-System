@@ -82,7 +82,7 @@ Driver-Monitoring-System/
 
 - Frontend: HTML, CSS, JavaScript Modules, Canvas API.
 - Web Computer Vision: MediaPipe Tasks Vision Face Landmarker.
-- Runtime local: Python, OpenCV, MediaPipe, NumPy.
+- Runtime local: Python 3.12, OpenCV, MediaPipe, NumPy.
 - Object Detection: Ultralytics YOLO.
 - Deploy: Vercel Static Output.
 - Qualidade: unittest, build estatico, browser verification.
@@ -119,14 +119,21 @@ npm run preview
 
 ## Execucao Local do DMS Python
 
-Recomendado: Python 3.9 a 3.12.
+Requer Python 3.12. As versoes em `requirements.txt` estao fixadas nas combinacoes validadas com os testes e o `main.py`.
 
 ```bash
-python -m venv .venv
+py -3.12 -m venv .venv
 .venv\Scripts\activate
+python --version
 pip install -r requirements.txt
 python main.py --source 0
 ```
+
+`python --version` deve mostrar `3.12.x`. Se o Python 3.12 nao estiver no PATH, use o caminho completo do executavel ao criar o ambiente (ex.: `%LOCALAPPDATA%\Programs\Python\Python312\python.exe -m venv .venv`).
+
+No primeiro uso, o app baixa os modelos do MediaPipe para `models/` e o `yolov8n.pt` do Ultralytics.
+
+No Windows com Smart App Control ativo, o torch pode falhar com `WinError 4551` (DLL bloqueada) em outras versoes do Python. Nesse caso o app continua sem a deteccao de celular por YOLO; com Python 3.12 e as versoes fixadas o torch carregou normalmente.
 
 Selecionar camera pelo nome no Windows:
 
