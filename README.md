@@ -158,6 +158,14 @@ python main.py --no-yolo --no-hands --no-mesh
 python main.py --no-face-overlay --no-debug-overlay
 ```
 
+Execucao sem janela (headless), util para validar o pipeline com um video sem camera nem interface grafica:
+
+```bash
+python main.py --source path/para/video.mp4 --headless --max-frames 120
+```
+
+`--max-frames` encerra apos o numero de frames indicado e pode ser usado com ou sem `--headless`. Com camera e `--headless` sem `--max-frames`, o app roda ate ser interrompido (Ctrl+C).
+
 ## Variaveis de Ambiente
 
 Nenhuma variavel e obrigatoria para a interface web estatica.
@@ -236,6 +244,9 @@ Cobertura atual:
 
 - score de atencao
 - filtro espacial de celular
+- parse de fonte, argumentos `--headless`/`--max-frames` e `clamp`
+- deteccao de sonolencia e microssono pelo EAR
+- renderizacao do painel de metricas e da barra de atencao
 - conversao de landmarks normalizados para pixels
 - ancora facial
 - escala e roll do overlay

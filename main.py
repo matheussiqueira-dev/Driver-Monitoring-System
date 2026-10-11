@@ -40,6 +40,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--width", type=int, default=None, help="Capture width")
     parser.add_argument("--height", type=int, default=None, help="Capture height")
     parser.add_argument("--no-mirror", action="store_true", help="Disable mirroring the camera feed")
+    parser.add_argument("--headless", action="store_true", help="Run without opening an OpenCV window")
+    parser.add_argument("--max-frames", type=int, default=None, help="Stop after processing this number of frames")
     return parser
 
 
@@ -110,6 +112,7 @@ def main() -> None:
         except Exception as exc:
             print(f"[DMS] Detector de maos desativado: {exc}")
 
+    frames_processed = 0
     while True:
         ok, frame = cap.read()
         if not ok:
@@ -172,13 +175,21 @@ def main() -> None:
         draw_attention_bar(frame, attention_state.score)
         draw_metrics(frame, eye_state, head_pose, attention_state, fps)
 
+        frames_processed += 1
+        if args.max_frames is not None and frames_processed >= args.max_frames:
+            break
+        if args.headless:
+            continue
+
         cv2.imshow("Driver Monitoring System", frame)
         key = cv2.waitKey(1) & 0xFF
         if key in (27, ord("q")):
             break
 
     cap.release()
-    cv2.destroyAllWindows()
+    if not args.headless:
+        cv2.destroyAllWindows()
+    print(f"[DMS] Frames processados: {frames_processed}")
 
 
 if __name__ == "__main__":
