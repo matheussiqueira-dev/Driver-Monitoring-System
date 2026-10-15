@@ -1,0 +1,7 @@
+# Normalize line endings: LF in the repo and working tree (Prettier/Ruff expect LF).
+* text=auto eol=lf
+*.png binary
+*.gif binary
+*.jpg binary
+*.webm binary
+*.mp4 binary
