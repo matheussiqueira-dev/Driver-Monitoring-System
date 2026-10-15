@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .errors import ConfigError
+
 
 @dataclass
 class DMSConfig:
@@ -39,6 +41,7 @@ class DMSConfig:
     pitch_threshold: float = 15.0
     roll_threshold: float = 20.0
     offroad_time_s: float = 1.5
+    no_face_grace_s: float = 1.0
 
     yolo_weights: str = "yolov8n.pt"
     yolo_conf: float = 0.3
@@ -52,7 +55,10 @@ class DMSConfig:
     score_smoothing: float = 0.8
     score_floor: float = 0.0
     score_ceiling: float = 100.0
+    attentive_min_score: float = 70.0
+    alert_min_score: float = 40.0
 
+    penalty_no_face: float = 25.0
     penalty_phone: float = 40.0
     penalty_phone_suspected: float = 12.0
     penalty_offroad: float = 20.0
@@ -74,3 +80,20 @@ class DMSConfig:
     overlay_reference_face_width: float = 360.0
     overlay_roll_weight: float = 0.7
     headpose_roll_weight: float = 0.3
+
+    def __post_init__(self) -> None:
+        problems = []
+        if self.frame_width <= 0 or self.frame_height <= 0:
+            problems.append("frame_width/frame_height devem ser positivos")
+        if not 0.0 <= self.score_smoothing < 1.0:
+            problems.append("score_smoothing deve estar em [0, 1)")
+        if self.score_floor >= self.score_ceiling:
+            problems.append("score_floor deve ser menor que score_ceiling")
+        if self.drowsy_time_s > self.microsleep_time_s:
+            problems.append("drowsy_time_s nao pode exceder microsleep_time_s")
+        if self.blink_min_frames > self.blink_max_frames:
+            problems.append("blink_min_frames nao pode exceder blink_max_frames")
+        if not 0.0 < self.yolo_conf <= 1.0:
+            problems.append("yolo_conf deve estar em (0, 1]")
+        if problems:
+            raise ConfigError("Configuracao invalida: " + "; ".join(problems))

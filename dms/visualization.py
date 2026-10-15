@@ -138,7 +138,8 @@ def draw_metrics(
     if eye_state.ear is not None:
         cv2.putText(frame, f"EAR: {eye_state.ear:.3f}", (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (230, 230, 230), 1)
         y += 22
-        cv2.putText(frame, f"Blink rate: {eye_state.blink_rate:.1f}/min", (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (230, 230, 230), 1)
+        blink_text = f"Blink rate: {eye_state.blink_rate:.1f}/min"
+        cv2.putText(frame, blink_text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (230, 230, 230), 1)
         y += 22
     if head_pose is not None:
         cv2.putText(

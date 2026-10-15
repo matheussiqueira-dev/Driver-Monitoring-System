@@ -42,50 +42,38 @@ Essa separacao preserva o deploy simples na Vercel e evita que `main.py` seja in
 
 ```text
 Driver-Monitoring-System/
-  assets/
-    demo.gif
-    icon-192.png
-    icon-512.png
-    og-image.png
-  dms/
-    attention.py
-    camera.py
-    config.py
-    detection.py
-    ear.py
-    face_mesh.py
-    head_pose.py
-    mediapipe_utils.py
-    overlay.py
-    spatial.py
-    utils.py
-    visualization.py
-  scripts/
-    build-static.js
-  tests/
-  docs/
-    PRODUCTION_AUDIT.md
-  analytics.js
-  app.js
-  index.html
-  manifest.webmanifest
-  pwa.js
-  robots.txt
-  service-worker.js
-  sitemap.xml
-  styles.css
-  main.py
-  vercel.json
+  shared/                      fonte unica das regras de score (web + Python)
+    scoring-config.json        limiares, tempos e penalidades
+    scoring-scenarios.json     cenarios gerados pelo motor Python (referencia)
+  src/                         app web (TypeScript estrito + Vite)
+    domain/                    regras puras: EAR, attention score, sessao, sensibilidade
+    app/                       casos de uso: pipeline de monitoramento, sinais da demo, controller
+    vision/                    MediaPipe Face Landmarker, tracking, mapeamento e overlay
+    infra/                     camera, analytics, service worker
+    ui/                        escrita no DOM (view)
+    shared/errors.ts           erros tipados com codigo estavel
+    main.ts                    composition root (injecao de dependencias)
+  public/                      arquivos estaticos (icones, manifest, service worker, demo)
+  dms/                         engine Python/OpenCV
+    pipeline.py                pipeline por frame com detectores injetaveis (Protocols)
+    errors.py                  erros de dominio com exit codes
+    attention.py, ear.py, ...  regras e modelos
+  main.py                      CLI e composition root do engine Python
+  tests/                       unittest (Python) e tests/web (Vitest)
+  scripts/generate_scoring_scenarios.py
+  .github/workflows/ci.yml     lint, typecheck, testes, paridade e build
 ```
+
+**Paridade web/Python.** As regras de score existem nas duas linguagens. Para nao divergirem, os limiares ficam em `shared/scoring-config.json` e o motor Python (referencia) gera `shared/scoring-scenarios.json`; os testes dos dois lados validam o mesmo arquivo. Mudou uma regra? Rode `python scripts/generate_scoring_scenarios.py` e os testes web mostram se a versao TypeScript acompanha.
 
 ## Stack
 
-- Frontend: HTML, CSS, JavaScript Modules, Canvas API.
-- Web Computer Vision: MediaPipe Tasks Vision Face Landmarker.
+- Frontend: TypeScript (strict), Vite, Canvas API, sem framework de UI.
+- Web Computer Vision: MediaPipe Tasks Vision Face Landmarker (carregado sob demanda).
 - Runtime local: Python 3.12, OpenCV, MediaPipe, NumPy.
 - Object Detection: Ultralytics YOLO.
-- Deploy: Vercel Static Output.
-- Qualidade: unittest, build estatico, browser verification.
+- Deploy: Vercel (output estatico).
+- Qualidade: Vitest, unittest, ESLint (strict type-checked), Prettier, Ruff, GitHub Actions.
 
 ## Pipeline Python
 
@@ -100,15 +88,14 @@ Driver-Monitoring-System/
 
 ## Execucao Local da Interface Web
 
+Requer Node.js 24.
+
 ```bash
+npm ci
 npm run dev
 ```
 
-Abra:
-
-```text
-http://localhost:3000
-```
+Abra `http://localhost:3000`. O modo Camera exige `localhost` ou HTTPS.
 
 Build e preview da versao final:
 
@@ -181,10 +168,11 @@ Para observabilidade:
 O projeto usa `vercel.json` com:
 
 - `framework: null`
-- `buildCommand: node scripts/build-static.js`
+- `installCommand: npm ci` e `buildCommand: npm run build` (typecheck + Vite)
 - `outputDirectory: dist`
 - rotas limpas para `/monitor`, `/dashboard`, `/arquitetura`, `/produto` e `/sobre`
 - headers de cache, seguranca, PWA e service worker
+- `.vercelignore` envia apenas o necessario para o build web (o engine Python nao vai para a Vercel)
 
 Deploy:
 
@@ -205,7 +193,7 @@ O app inclui:
 
 - `manifest.webmanifest`
 - icones `192x192` e `512x512`
-- service worker com cache do app shell
+- service worker versionado por build (cada deploy invalida o cache anterior)
 - suporte a instalacao desktop/mobile
 - fallback offline para navegacao principal
 
@@ -220,7 +208,7 @@ Implementado:
 - `robots.txt`
 - `sitemap.xml`
 - structured data `WebApplication`
-- imagem social `assets/og-image.png`
+- imagem social `public/assets/og-image.png`
 
 ## Seguranca
 
@@ -237,21 +225,21 @@ Implementado em `vercel.json`:
 ## Testes
 
 ```bash
-python -m unittest discover -s tests
+npm run validate                              # format, lint, typecheck, Vitest e build
+python -m unittest discover -s tests          # com o venv Python 3.12 ativado
+python -m ruff check .                        # requer pip install -r requirements-dev.txt
 ```
+
+O CI (`.github/workflows/ci.yml`) roda tudo isso em cada push e pull request, e confere se `shared/scoring-scenarios.json` esta atualizado.
 
 Cobertura atual:
 
-- score de atencao
-- filtro espacial de celular
-- parse de fonte, argumentos `--headless`/`--max-frames` e `clamp`
-- deteccao de sonolencia e microssono pelo EAR
-- renderizacao do painel de metricas e da barra de atencao
-- conversao de landmarks normalizados para pixels
-- ancora facial
-- escala e roll do overlay
-- suavizacao EMA
-- hold/fade quando a face desaparece
+- paridade das regras de score entre web e Python em 10 cenarios (piscada, sonolencia, microssono, olhar fora, celular, perda de rosto)
+- validacao da configuracao compartilhada nos dois runtimes
+- agregacao de sessao: eventos contados por ocorrencia, tendencia e tempo por nivel de risco
+- sinais da demo passando pelo pipeline real
+- pipeline Python com detectores falsos injetados, CLI e codigos de saida
+- filtro espacial de celular, overlay (ancora, escala, roll, EMA, hold/fade) e renderizacao
 
 ## Roadmap
 

@@ -1,20 +1,16 @@
-# Deploy only the static portfolio surface. The Python/OpenCV DMS stays in GitHub
+# Deploy only what the web build needs. The Python/OpenCV engine stays in GitHub
 # for local execution and must not be interpreted as a Vercel Python Function.
 /*
 !.vercelignore
 !vercel.json
 !package.json
+!package-lock.json
+!tsconfig.json
+!vite.config.ts
 !index.html
-!styles.css
-!app.js
-!analytics.js
-!pwa.js
-!favicon.svg
-!manifest.webmanifest
-!service-worker.js
-!robots.txt
-!sitemap.xml
-!assets/
-!assets/**
-!scripts/
-!scripts/**
+!src/
+!src/**
+!public/
+!public/**
+!shared/
+!shared/scoring-config.json

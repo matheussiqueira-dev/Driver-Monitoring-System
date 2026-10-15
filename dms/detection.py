@@ -78,7 +78,8 @@ class YoloPhoneDetector:
             area_ratio = ((x2 - x1) * (y2 - y1)) / float(w * h)
             if area_ratio < self.config.phone_min_area_ratio:
                 continue
-            label = self.model.names.get(class_id, str(class_id)) if isinstance(self.model.names, dict) else self.model.names[class_id]
+            names = self.model.names
+            label = names.get(class_id, str(class_id)) if isinstance(names, dict) else names[class_id]
             detection = Detection(bbox=(x1, y1, x2, y2), conf=conf, label=label, class_id=class_id)
             detections.append(detection)
             if self.phone_class_id is not None and class_id == self.phone_class_id:

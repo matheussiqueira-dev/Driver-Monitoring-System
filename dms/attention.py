@@ -41,9 +41,9 @@ class AttentionScorer:
         if face_present:
             self._last_face_time = timestamp
         else:
-            if self._last_face_time is None or (timestamp - self._last_face_time) > 1.0:
+            if self._last_face_time is None or (timestamp - self._last_face_time) > self.config.no_face_grace_s:
                 events.append("Sem rosto")
-                penalty += 25.0
+                penalty += self.config.penalty_no_face
 
         if eye_state.microsleep:
             penalty += self.config.penalty_microsleep
@@ -78,9 +78,9 @@ class AttentionScorer:
         score = self._smoother.update(raw_score)
         score = clamp(score, self.config.score_floor, self.config.score_ceiling)
 
-        if score >= 70:
+        if score >= self.config.attentive_min_score:
             label = "Atento"
-        elif score >= 40:
+        elif score >= self.config.alert_min_score:
             label = "Alerta"
         else:
             label = "Distraido"

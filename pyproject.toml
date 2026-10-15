@@ -1,0 +1,18 @@
+[project]
+name = "driver-monitoring-system"
+version = "1.0.0"
+description = "Real-time Driver Monitoring System: Face Mesh, EAR, head pose, phone detection and attention scoring."
+requires-python = ">=3.12,<3.13"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = [".venv*", "node_modules", "dist"]
+
+[tool.ruff.lint]
+# pycodestyle, pyflakes, isort, bugbear, pyupgrade-safe subset, bandit-style security checks
+select = ["E", "F", "W", "I", "B", "S"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S"]
