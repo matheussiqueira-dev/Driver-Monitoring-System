@@ -1,6 +1,7 @@
 import type { ScoringConfig } from "../domain/config";
 import { buildSessionReport, type SessionReport } from "../domain/report";
 import { applySensitivity } from "../domain/sensitivity";
+import { isPhoneNearFace, type Corners } from "../domain/spatial";
 import type { TelemetryEvent, EventPayload } from "../infra/analytics";
 import type { CameraSource } from "../infra/camera";
 import { toAppError, userMessageFor, type AppError } from "../shared/errors";
@@ -8,7 +9,8 @@ import type { MonitorView, SourceMode } from "../ui/monitorView";
 import type { CoordinateMapper, MediaSize, Viewport } from "../vision/coordinateMapper";
 import type { FaceLandmarkerService } from "../vision/faceLandmarker";
 import type { FaceTrack, FaceTracker } from "../vision/faceTracker";
-import type { OverlayLayers, OverlayRenderer } from "../vision/overlayRenderer";
+import type { OverlayLayers, OverlayRenderer, PhoneOverlay } from "../vision/overlayRenderer";
+import type { NormalizedBox, PhoneDetectorService } from "../vision/phoneDetector";
 import { MonitoringPipeline, type PipelineResult } from "./pipeline";
 import { demoSignals, type FrameSignals } from "./signals";
 
@@ -31,6 +33,8 @@ export interface MonitorDependencies {
   readonly renderer: OverlayRenderer;
   readonly mapper: CoordinateMapper;
   readonly landmarker: FaceLandmarkerService;
+  /** Optional in practice: camera mode keeps working if this model fails to load. */
+  readonly phoneDetector: PhoneDetectorService;
   readonly tracker: FaceTracker;
   readonly camera: CameraSource;
   readonly media: { readonly demo: HTMLImageElement; readonly video: HTMLVideoElement };
@@ -72,6 +76,7 @@ export class MonitorController {
   private readonly rate = new RateMeter();
   private viewport: Viewport = { width: 1, height: 1, dpr: 1 };
   private lastResult: PipelineResult | null = null;
+  private phones: readonly PhoneOverlay[] = [];
   private lastFrameMs: number | null = null;
   private simTimeS = 0;
   private simAccumulatorS = 0;
@@ -152,6 +157,7 @@ export class MonitorController {
       // Drop demo samples collected while the camera and model were loading.
       this.resetSession();
       this.showCamera(true);
+      this.startPhoneDetector();
       this.deps.track("camera_ready", {
         width: this.deps.media.video.videoWidth,
         height: this.deps.media.video.videoHeight,
@@ -169,6 +175,19 @@ export class MonitorController {
       }
       return this.mode;
     }
+  }
+
+  /** Loads in the background; a failure only disables phone signals. */
+  private startPhoneDetector(): void {
+    this.deps.phoneDetector.ensureReady().then(
+      () => {
+        this.deps.track("phone_detector_ready", { runtime: "web" });
+      },
+      (error: unknown) => {
+        const appError = toAppError(error);
+        this.deps.track("phone_detector_error", { code: appError.code, message: appError.message });
+      },
+    );
   }
 
   private fallBackToDemo(error: AppError): void {
@@ -194,6 +213,8 @@ export class MonitorController {
   private resetSession(): void {
     this.pipeline.reset();
     this.deps.tracker.reset();
+    this.deps.phoneDetector.reset();
+    this.phones = [];
     this.rate.reset();
     this.lastResult = null;
     this.simTimeS = 0;
@@ -261,28 +282,46 @@ export class MonitorController {
     if (detection) {
       const mapped = detection.landmarks?.map((landmark) => this.deps.mapper.toCanvasPoint(landmark)) ?? null;
       track = this.deps.tracker.update(mapped, nowMs);
-      this.lastResult = this.process(this.signalsFromTrack(track), nowMs / 1000);
+      this.phones = this.classifyPhones(this.deps.phoneDetector.detect(this.deps.media.video, nowMs), track);
+      this.lastResult = this.process(this.signalsFromTrack(track, this.phones), nowMs / 1000);
       this.rate.tick(nowMs);
     }
     const result = this.lastResult ?? this.process(NO_FACE, nowMs / 1000);
     this.lastResult = result;
-    this.deps.renderer.drawTrack(track, result.attention, this.deps.landmarker.connections, this.layers);
+    this.deps.renderer.drawTrack(track, result.attention, this.deps.landmarker.connections, this.layers, this.phones);
     const status = this.deps.landmarker.status === "ready" ? null : `Face Mesh: ${this.deps.landmarker.status}`;
     this.render(result, nowMs, status, this.debugLines(track));
   }
 
-  private signalsFromTrack(track: FaceTrack | null): FrameSignals {
+  /** Maps detector boxes to canvas pixels (same space as the face track) and applies the proximity rule. */
+  private classifyPhones(boxes: readonly NormalizedBox[], track: FaceTrack | null): readonly PhoneOverlay[] {
+    const { mapper } = this.deps;
+    const face: Corners | null =
+      track?.status === "tracking"
+        ? { x1: track.box.x, y1: track.box.y, x2: track.box.x + track.box.width, y2: track.box.y + track.box.height }
+        : null;
+    return boxes.map((normalized) => {
+      // Mirroring swaps the horizontal corners, so take min/max after mapping.
+      const a = mapper.toCanvasPoint({ x: normalized.x1, y: normalized.y1 });
+      const b = mapper.toCanvasPoint({ x: normalized.x2, y: normalized.y2 });
+      const box = { x1: Math.min(a.x, b.x), y1: Math.min(a.y, b.y), x2: Math.max(a.x, b.x), y2: Math.max(a.y, b.y) };
+      const near = isPhoneNearFace(box, face, mapper.size.height, track?.pose.pitch ?? null);
+      return { box, score: normalized.score, near };
+    });
+  }
+
+  private signalsFromTrack(track: FaceTrack | null, phones: readonly PhoneOverlay[]): FrameSignals {
+    const phonePresent = phones.length > 0;
     if (!track || track.status !== "tracking") {
-      return NO_FACE;
+      return { ...NO_FACE, phonePresent };
     }
-    // Phone detection runs only in the Python engine for now.
     return {
       facePresent: true,
       ear: track.ear,
       mar: track.mar,
       headPose: track.pose,
-      phonePresent: false,
-      phoneNearFace: false,
+      phonePresent,
+      phoneNearFace: phones.some((phone) => phone.near),
     };
   }
 
@@ -324,6 +363,7 @@ export class MonitorController {
       `video: ${video.videoWidth}x${video.videoHeight}`,
       `canvas: ${Math.round(width)}x${Math.round(height)} @${dpr.toFixed(2)}x`,
       `faceMesh: ${this.deps.landmarker.status} (${this.deps.landmarker.delegate ?? "-"})`,
+      `phoneDetector: ${this.deps.phoneDetector.status} (${this.phones.length})`,
       `mirrored: ${String(this.deps.mapper.isMirrored)}`,
       `trackingFps: ${(track?.trackingFps ?? 0).toFixed(1)}`,
       `track: ${track?.status ?? "none"}`,

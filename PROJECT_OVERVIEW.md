@@ -14,7 +14,7 @@ O DMS (Driver Monitoring System) observa o rosto do motorista por camera e trans
 | Bocejo | Mouth Aspect Ratio (MAR) | MAR >= 0.6 por >= 1.5 s |
 | Olhar fora | pose da cabeca (yaw > 20 graus ou pitch > 15 graus) | desvio continuo >= 1.5 s |
 | Distracao acumulada | pose da cabeca, acumulada | >= 10 s fora da via dentro de 30 s (Euro NCAP 2026 VATS) |
-| Celular / Celular suspeito | YOLO + filtro espacial (somente engine Python) | celular perto do rosto / no quadro |
+| Celular / Celular suspeito | YOLO (Python) ou MediaPipe Object Detector (web) + filtro espacial | celular perto do rosto / no quadro |
 | Sem rosto | ausencia de landmarks | > 1.0 s sem rosto |
 
 Cada evento ativo aplica uma penalidade; sem penalidades ha um bonus de estabilidade. O score bruto e suavizado por media movel exponencial (`score_smoothing = 0.8`) para evitar oscilacao.
@@ -48,7 +48,7 @@ Camadas com dependencias apontando para dentro (Clean Architecture leve, sem fra
 |---|---|---|
 | `domain/` | Regras puras e testaveis: EAR, MAR, PERCLOS/VATS, score, sessao, relatorio, sensibilidade | `attention.ts`, `eyeState.ts`, `mouthState.ts`, `rolling.ts`, `session.ts`, `report.ts`, `config.ts` |
 | `app/` | Casos de uso: pipeline por frame, sinais da demo, controller do monitor | `pipeline.ts`, `signals.ts`, `monitorController.ts` |
-| `vision/` | MediaPipe, tracking com EMA e hold/fade, mapeamento video->canvas, overlay | `faceLandmarker.ts`, `faceTracker.ts`, `coordinateMapper.ts`, `overlayRenderer.ts`, `headPose.ts` |
+| `vision/` | MediaPipe (runtime WASM compartilhado), Face Landmarker, detector de celular, tracking com EMA e hold/fade, mapeamento video->canvas, overlay | `visionRuntime.ts`, `faceLandmarker.ts`, `phoneDetector.ts`, `faceTracker.ts`, `coordinateMapper.ts`, `overlayRenderer.ts`, `headPose.ts` |
 | `infra/` | Camera, analytics opt-in, service worker, download local | `camera.ts`, `analytics.ts`, `pwa.ts`, `download.ts` |
 | `ui/` | Unico ponto que escreve no DOM | `monitorView.ts`, `dom.ts` |
 | `main.ts` | Composition root: monta o grafo de objetos e injeta dependencias | |
@@ -59,6 +59,7 @@ Fluxo de um frame no modo Camera:
 2. `FaceLandmarkerService.detect` roda inferencia em modo VIDEO, limitada a 30 Hz.
 3. `CoordinateMapper` converte landmarks normalizados para pixels do canvas, considerando `object-fit: cover`, `devicePixelRatio` e espelhamento.
 4. `FaceTracker` suaviza os pontos (EMA adaptativa), calcula EAR, MAR e pose, e mantem o overlay por alguns frames quando o rosto some (hold e fade).
+   Em paralelo, `PhoneDetectorService` roda o Object Detector no maximo a cada 400 ms; as caixas vao para o mesmo espaco do canvas e `isPhoneNearFace` (porta de `dms/spatial.py`) decide entre "Celular" e "Celular suspeito".
 5. `MonitoringPipeline` passa os sinais por `EyeStateTracker`, `MouthStateTracker` e `AttentionScorer`, e agrega a sessao em `SessionStats` (eventos contados por ocorrencia, nao por frame).
 6. `MonitorView` atualiza HUD a cada frame e dashboard a cada 250 ms.
 
@@ -90,7 +91,7 @@ Base de PERCLOS e VATS. Cada amostra guarda a contribuicao do intervalo que term
 
 ### 3.4 Paridade entre runtimes
 
-O motor Python e a referencia. `scripts/generate_scoring_scenarios.py` executa 14 cenarios deterministicos (piscada, sonolencia, microssono, olhar rapido, olhar sustentado, olhar para baixo, celular perto/longe, perda de rosto, PERCLOS alto, bocejo, fala, olhares repetidos) e grava as saidas esperadas. Os testes Python e Vitest validam o mesmo arquivo; o CI regenera e falha se houver diferenca.
+O motor Python e a referencia. `scripts/generate_scoring_scenarios.py` executa 14 cenarios deterministicos (piscada, sonolencia, microssono, olhar rapido, olhar sustentado, olhar para baixo, celular perto/longe, perda de rosto, PERCLOS alto, bocejo, fala, olhares repetidos) e grava as saidas esperadas. Os testes Python e Vitest validam o mesmo arquivo; o CI regenera e falha se houver diferenca. O mesmo script gera `shared/spatial-cases.json` (127 posicoes de celular combinadas com inclinacoes de cabeca) para a regra de proximidade celular-rosto, validada da mesma forma.
 
 ## 4. Qualidade, seguranca e privacidade
 
@@ -104,15 +105,15 @@ O motor Python e a referencia. `scripts/generate_scoring_scenarios.py` executa 1
 
 | Camada | Ferramenta | Quantidade |
 |---|---|---|
-| Regras, sessao, relatorio, config (web) | Vitest | 43 |
-| Engine, pipeline com fakes, CLI, overlay, janelas (Python) | unittest | 44 |
-| Fluxos reais no build de producao | Playwright (Chromium, camera sintetica) | 5 |
+| Regras, sessao, relatorio, config, proximidade do celular (web) | Vitest | 45 |
+| Engine, pipeline com fakes, CLI, overlay, janelas (Python) | unittest | 45 |
+| Fluxos reais no build de producao | Playwright (Chromium, camera sintetica e foto real como camera) | 6 |
 
 ## 5. Como as tecnologias novas foram integradas
 
 | Tecnologia | Versao | Integracao |
 |---|---|---|
-| `@mediapipe/tasks-vision` | 1.1.1 | Atualizada de 0.10.35; API compativel. Um teste garante que a versao do WASM no CDN e a mesma do bundle. |
+| `@mediapipe/tasks-vision` | 1.1.1 | Atualizada de 0.10.35; API compativel. Um teste garante que a versao do WASM no CDN e a mesma do bundle. Um unico fileset WASM serve o Face Landmarker e o Object Detector (EfficientDet-Lite0 float16) usado para celular. |
 | `mediapipe` (Python) | 1.1.1 | `mp.solutions` foi removido no 1.x; o backend legado foi apagado e o Tasks API e o unico caminho. |
 | `ultralytics` | 8.4.178 | Executado em passo de N frames. |
 | OpenCV | 5.0.0.93 | `opencv-python` e `opencv-contrib-python` fixados na mesma versao (ambos instalam `cv2`). |

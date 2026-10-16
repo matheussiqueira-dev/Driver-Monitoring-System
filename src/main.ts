@@ -12,6 +12,7 @@ import { MonitorView, type SourceMode } from "./ui/monitorView";
 import { CoordinateMapper } from "./vision/coordinateMapper";
 import { FaceLandmarkerService } from "./vision/faceLandmarker";
 import { FaceTracker } from "./vision/faceTracker";
+import { PhoneDetectorService } from "./vision/phoneDetector";
 import { OverlayRenderer, type OverlayLayers } from "./vision/overlayRenderer";
 
 const SOURCE_MODES: readonly SourceMode[] = ["demo", "camera", "review"];
@@ -58,6 +59,7 @@ function bootstrap(): void {
       renderer: new OverlayRenderer(canvas, context, mapper),
       mapper,
       landmarker: new FaceLandmarkerService(),
+      phoneDetector: new PhoneDetectorService(),
       tracker: new FaceTracker(),
       camera: new CameraSource(video),
       media: { demo, video },

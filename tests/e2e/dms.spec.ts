@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { expect, test, type ConsoleMessage, type Page } from "@playwright/test";
 
 /** Console errors, ignoring MediaPipe's native INFO lines that it prints through console.error. */
@@ -69,7 +70,7 @@ test("exports the session as JSON and CSV", async ({ page }) => {
   expect(csv.suggestedFilename()).toMatch(/\.csv$/);
 });
 
-test("camera mode loads Face Landmarker under the production CSP", async ({ page }) => {
+test("camera mode loads Face Landmarker and the phone detector under the production CSP", async ({ page }) => {
   test.slow();
   const errors = collectErrors(page);
   await page.goto("/");
@@ -79,6 +80,49 @@ test("camera mode loads Face Landmarker under the production CSP", async ({ page
   const debug = page.locator("#trackingDebug");
   await expect(debug).toBeVisible({ timeout: 30_000 });
   await expect(debug).toContainText(/faceMesh: ready \((GPU|CPU)\)/, { timeout: 45_000 });
+  // Phone detection loads in the background and shares the same WASM fileset.
+  await expect(debug).toContainText(/phoneDetector: ready/, { timeout: 45_000 });
   await expect(page.getByRole("button", { name: "Camera" })).toHaveAttribute("aria-pressed", "true");
   expect(errors).toEqual([]);
+});
+
+test.describe("with a photo as the camera", () => {
+  // The app's service worker would answer the fixture request itself, bypassing page.route.
+  test.use({ serviceWorkers: "block" });
+
+  test("camera mode flags a phone held next to the face", async ({ page }) => {
+    test.slow();
+    const errors = collectErrors(page);
+    const fixture = fileURLToPath(new URL("./fixtures/driver-phone.jpg", import.meta.url));
+    // Same-origin path, so the production CSP (img-src 'self') allows it.
+    await page.route("**/__e2e__/driver-phone.jpg", (route) =>
+      route.fulfill({ path: fixture, contentType: "image/jpeg" }),
+    );
+    // Replace the camera with a canvas stream that keeps painting the fixture photo.
+    await page.addInitScript(() => {
+      navigator.mediaDevices.getUserMedia = async () => {
+        const image = new Image();
+        image.src = "/__e2e__/driver-phone.jpg";
+        await image.decode();
+        const canvas = document.createElement("canvas");
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        const context = canvas.getContext("2d");
+        const paint = (): void => {
+          context?.drawImage(image, 0, 0);
+          requestAnimationFrame(paint);
+        };
+        paint();
+        return canvas.captureStream(30);
+      };
+    });
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "Camera" }).click();
+
+    const debug = page.locator("#trackingDebug");
+    await expect(debug).toContainText(/phoneDetector: ready \([1-9]\)/, { timeout: 60_000 });
+    await expect(page.locator("#eventList")).toContainText(/Celular(?! suspeito)/, { timeout: 15_000 });
+    expect(errors).toEqual([]);
+  });
 });

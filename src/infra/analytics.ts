@@ -10,6 +10,8 @@ export type TelemetryEvent =
   | "camera_start_failed"
   | "face_mesh_ready"
   | "face_mesh_error"
+  | "phone_detector_ready"
+  | "phone_detector_error"
   | "attention_event"
   | "report_exported"
   | "web_vital"

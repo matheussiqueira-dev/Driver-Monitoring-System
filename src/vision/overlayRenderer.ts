@@ -1,5 +1,6 @@
 import type { AttentionState } from "../domain/attention";
 import type { FrameSignals } from "../app/signals";
+import type { Corners } from "../domain/spatial";
 import type { CoordinateMapper } from "./coordinateMapper";
 import type { Connection } from "./faceLandmarker";
 import type { FaceTrack } from "./faceTracker";
@@ -8,6 +9,13 @@ export interface OverlayLayers {
   mesh: boolean;
   pose: boolean;
   objects: boolean;
+}
+
+/** A detected phone in canvas pixels, already classified against the face. */
+export interface PhoneOverlay {
+  readonly box: Corners;
+  readonly score: number;
+  readonly near: boolean;
 }
 
 const RISK_COLORS = { ok: "#56f08d", warn: "#f7c75b", danger: "#ff5e67" } as const;
@@ -41,7 +49,11 @@ export class OverlayRenderer {
     attention: AttentionState,
     connections: readonly Connection[],
     layers: OverlayLayers,
+    phones: readonly PhoneOverlay[] = [],
   ): void {
+    if (layers.objects) {
+      this.drawPhones(phones);
+    }
     if (!track || track.opacity <= 0) {
       return;
     }
@@ -120,6 +132,17 @@ export class OverlayRenderer {
         near ? "cell phone (perto do rosto)" : "cell phone",
         near ? RISK_COLORS.danger : RISK_COLORS.warn,
       );
+    }
+  }
+
+  private drawPhones(phones: readonly PhoneOverlay[]): void {
+    for (const { box, score, near } of phones) {
+      const color = near ? RISK_COLORS.danger : RISK_COLORS.warn;
+      this.ctx.strokeStyle = color;
+      this.ctx.lineWidth = 2;
+      this.ctx.strokeRect(box.x1, box.y1, box.x2 - box.x1, box.y2 - box.y1);
+      const label = `cell phone ${Math.round(score * 100)}%${near ? " (perto do rosto)" : ""}`;
+      this.drawLabel(box.x1, Math.max(18, box.y1 - 6), label, color);
     }
   }
 

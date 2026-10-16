@@ -12,9 +12,9 @@ Documento executivo da evolucao do Driver Monitoring System: de onde o projeto s
 | Python | Dependencias sem versao fixa, backend MediaPipe legado | Python 3.12 com versoes fixadas, apenas Tasks API, pipeline com Protocols, erros com exit codes |
 | Performance (engine, CPU 720p) | YOLO em todo frame: 16.8 FPS | YOLO/maos a cada 3 frames: 40.6 FPS (2.4x) |
 | Bundle web | Sem medicao registrada | Bundle inicial de 14 kB gzip; MediaPipe (46 kB gzip + WASM) carregado sob demanda ao ativar a camera |
-| Testes | unittest basico | 44 unittest + 43 Vitest + 5 Playwright E2E; CI com lint, typecheck, paridade, build e E2E |
+| Testes | unittest basico | 45 unittest + 45 Vitest + 6 Playwright E2E; CI com lint, typecheck, paridade, build e E2E |
 | Seguranca e privacidade | Headers so na Vercel | Mesmos headers no `vite preview`; telemetria do MediaPipe bloqueada pela CSP; CSV protegido contra injecao de formula |
-| Produto | Dashboard de demonstracao | Dashboard com PERCLOS, bocejos e VATS; exportacao JSON/CSV local |
+| Produto | Dashboard de demonstracao | Dashboard com PERCLOS, bocejos e VATS; celular detectado tambem no navegador; exportacao JSON/CSV local |
 
 ## 2. Melhorias arquiteturais de longo prazo
 
@@ -27,33 +27,17 @@ Documento executivo da evolucao do Driver Monitoring System: de onde o projeto s
 
 ## 3. Guias taticos para as novas features
 
-### 3.1 Celular no navegador (MediaPipe Object Detector)
+### 3.1 Celular no navegador (implementado)
 
-Mesmo pacote ja carregado, sem dependencia nova. Rodar a cada N frames, como no engine Python.
+Implementado em `src/vision/phoneDetector.ts`, `src/vision/visionRuntime.ts` e `src/domain/spatial.ts`:
 
-```ts
-// src/vision/phoneDetector.ts (proposta)
-import type { FilesetResolver, ObjectDetector } from "@mediapipe/tasks-vision";
+- **Um runtime WASM para todas as tasks:** `loadVisionRuntime()` carrega o modulo e o fileset uma vez; Face Landmarker e Object Detector compartilham.
+- **Modelo:** EfficientDet-Lite0 float16, `categoryAllowlist: ["cell phone"]`, limiar 0.3. Comparacao em 6 fotos publicas (delegate CPU, limiar 0.2): Lite0 int8 achou 2/6 (114 ms), Lite0 float16 3/6 (121 ms), Lite2 2/6 com mais confianca (209-398 ms). Em 10 outras fotos o Lite0 float16 achou o celular em 7.
+- **Custo controlado:** inferencia no maximo a cada 400 ms, resultado reutilizado e descartado apos 1 s; carregamento em segundo plano e opcional (se falhar, o modo Camera segue sem sinal de celular).
+- **Mesma regra do Python:** caixas mapeadas para o espaco do canvas (com `object-fit: cover` e espelhamento) e `isPhoneNearFace` validado contra `shared/spatial-cases.json` (127 casos gerados pelo Python).
+- **E2E:** uma foto real (CC BY 2.0) e servida como camera via `canvas.captureStream`; o teste exige o evento "Celular" no pipeline completo.
 
-// WasmFileset is not exported by the package; derive it from the resolver.
-type WasmFileset = Awaited<ReturnType<typeof FilesetResolver.forVisionTasks>>;
-
-const MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite";
-
-export async function createPhoneDetector(fileset: WasmFileset): Promise<ObjectDetector> {
-  const { ObjectDetector } = await import("@mediapipe/tasks-vision");
-  return ObjectDetector.createFromOptions(fileset, {
-    baseOptions: { modelAssetPath: MODEL_URL, delegate: "GPU" },
-    runningMode: "VIDEO",
-    categoryAllowlist: ["cell phone"],
-    scoreThreshold: 0.35,
-    maxResults: 2,
-  });
-}
-```
-
-Passos: reutilizar o `FilesetResolver` do Face Landmarker; portar `dms/spatial.py::is_phone_near_face` para `src/domain/spatial.ts` com cenarios de paridade; preencher `phonePresent`/`phoneNearFace` em `signalsFromTrack`; adicionar o modelo ao `connect-src` (ja coberto por `storage.googleapis.com`). Validar licenca dos pesos antes de publicar.
+Proximos passos: mover a inferencia para um Web Worker e reavaliar o Lite2 com delegate GPU.
 
 ### 3.2 Olhar (gaze) por iris
 
@@ -229,7 +213,7 @@ function csvCell(value: string | number): string {
 
 - **Limiares heuristicos:** PERCLOS 15% em 60 s e MAR 0.6 por 1.5 s nao tem referencia normativa unica; devem ser calibrados com dados (ex.: YawDD).
 - **Euro NCAP x projeto:** o protocolo pede deteccao de distracao longa em 3-4 s; o projeto usa 1.5 s (mais sensivel, adequado para demo). O VATS segue o protocolo (10 s em 30 s).
-- **Celular no web:** ainda nao implementado; somente no engine Python.
+- **Celular no web:** o EfficientDet-Lite0 tem recall limitado (celular encontrado em cerca de metade a dois tercos das fotos testadas); amostra pequena, nao e uma avaliacao formal.
 - **TypeScript 7:** bloqueado ate o `typescript-eslint` suportar.
 - **Telemetria do MediaPipe 1.1.x:** bloqueada pela CSP em producao; em ambientes sem CSP (ex.: `vite dev`) o envio de contadores pode ocorrer.
 - **Nao e um sistema automotivo certificado:** projeto educacional e de portfolio.

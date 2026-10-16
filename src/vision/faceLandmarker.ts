@@ -1,10 +1,9 @@
 import type { FaceLandmarker, FaceLandmarkerResult } from "@mediapipe/tasks-vision";
 import type { Point } from "../domain/geometry";
 import { AppError } from "../shared/errors";
+import { loadVisionRuntime } from "./visionRuntime";
 
-/** Pinned to the npm package version so JS, WASM and model stay in sync. */
-export const TASKS_VISION_VERSION = "1.1.1";
-const WASM_URL = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${TASKS_VISION_VERSION}/wasm`;
+export { TASKS_VISION_VERSION } from "./visionRuntime";
 const FACE_MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
 const MIN_INFERENCE_INTERVAL_MS = 1000 / 30;
@@ -60,9 +59,8 @@ export class FaceLandmarkerService {
 
   private async load(): Promise<void> {
     this.statusValue = "loading";
-    // Dynamic import keeps MediaPipe out of the initial bundle.
-    const { FaceLandmarker: FaceLandmarkerClass, FilesetResolver } = await import("@mediapipe/tasks-vision");
-    const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
+    const { vision, fileset } = await loadVisionRuntime();
+    const FaceLandmarkerClass = vision.FaceLandmarker;
     const create = (delegate: "GPU" | "CPU"): Promise<FaceLandmarker> =>
       FaceLandmarkerClass.createFromOptions(fileset, {
         baseOptions: { modelAssetPath: FACE_MODEL_URL, delegate },

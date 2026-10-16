@@ -40,6 +40,7 @@ Pesquisa: protocolo Euro NCAP Safe Driving Driver Engagement v1.2 (2026), regula
 | Distracao acumulada (VATS) | Euro NCAP 2026: 10 s fora da via em 30 s | Implementado |
 | Exportacao da sessao JSON/CSV | Necessidade de relatorio para frotas | Implementado, 100% local |
 | E2E com camera sintetica | Fluxos reais com CSP de producao | Implementado e no CI |
+| Celular no navegador | MediaPipe Object Detector + porta da regra espacial do Python | Implementado; paridade em 127 casos e E2E com foto real |
 
 **Skills:** pesquisa regulatoria, modelagem de metricas temporais, design de cenarios deterministicos, UI de dashboard acessivel (contraste, foco visivel, `aria`), testes E2E.
 
@@ -57,9 +58,12 @@ Pesquisa: protocolo Euro NCAP Safe Driving Driver Engagement v1.2 (2026), regula
 | `numpy` | 2.5.4 | BSD-3 | Geometria dos landmarks |
 | `ultralytics` | 8.4.178 | **AGPL-3.0** | YOLO para celular (somente engine local) |
 | `torch` / `torchvision` | 2.14.1 / 0.29.1 | BSD-3 | Runtime do YOLO |
+| EfficientDet-Lite0 float16 (modelo MediaPipe) | 1 | Licenca dos pesos nao informada na pagina do MediaPipe; verificar o model card antes de uso comercial | Celular no navegador |
 | Vite / Vitest | 8.3.4 / 5.0.5 | MIT | Build e testes unitarios |
 | Playwright | 1.64.1 | Apache-2.0 | E2E |
 | ESLint + typescript-eslint, Prettier, Ruff | 10.13 / 8.71.2, 3.9.10, 0.17.1 | MIT | Qualidade |
+
+Fixture de E2E: `tests/e2e/fixtures/driver-phone.jpg` (Wikimedia Commons, epSos.de, CC BY 2.0), creditada em `tests/e2e/fixtures/README.md`.
 
 Observacao de licenca: o Ultralytics YOLO e AGPL-3.0. Como o projeto e open-source (MIT) e o YOLO roda somente localmente, isso e aceitavel, mas um produto fechado precisaria de licenca comercial ou de outro detector.
 
@@ -67,7 +71,6 @@ Observacao de licenca: o Ultralytics YOLO e AGPL-3.0. Como o projeto e open-sour
 
 | Proximo passo | Recurso | Licenca / custo | Observacao |
 |---|---|---|---|
-| Celular no navegador | MediaPipe Object Detector (EfficientDet-Lite0, COCO "cell phone") | Apache-2.0 (verificar pesos) | Mesmo pacote ja carregado; zero dependencia nova |
 | Celular com YOLO no navegador | ONNX Runtime Web (WebGPU/WASM) | MIT | Requer modelo exportado; atencao a licenca AGPL dos pesos Ultralytics |
 | Olhar (gaze) | Landmarks de iris 468-477 do Face Landmarker | Apache-2.0 | Sem modelo extra |
 | Olhar com modelo dedicado | L2CS-Net ou yakhyo/gaze-estimation (ONNX) | MIT | Evitar WebGazer (GPL-3.0, calibracao por clique) |
@@ -81,7 +84,7 @@ Observacao de licenca: o Ultralytics YOLO e AGPL-3.0. Como o projeto e open-sour
 
 | Horizonte | Item | Esforco |
 |---|---|---|
-| Curto | Celular no navegador com Object Detector, passo de N frames | M |
+| Curto | Celular no navegador: rodar em Web Worker e avaliar EfficientDet-Lite2 com GPU | M |
 | Curto | Alerta sonoro opcional (Web Audio), com mute persistido | P |
 | Curto | `axe-core` no E2E | P |
 | Medio | Gaze por iris combinado com pose para "eyes off road" | M |

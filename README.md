@@ -28,7 +28,7 @@ Essa separacao preserva o deploy simples na Vercel e evita que `main.py` seja in
 - Mapeamento do overlay considerando tamanho real do video, canvas, `object-fit: cover`, `devicePixelRatio` e espelhamento.
 - EAR para sonolencia e microssono.
 - Head Pose com yaw, pitch e roll.
-- Deteccao de celular por YOLO no pipeline Python.
+- Deteccao de celular por YOLO no pipeline Python e por MediaPipe Object Detector no navegador (modo Camera).
 - Fallback de maos com MediaPipe Hands.
 - Attention Score 0-100 com suavizacao temporal.
 - Fadiga por PERCLOS (porcentagem de tempo com olhos fechados em 60s).
@@ -257,13 +257,13 @@ Cobertura atual:
 - pipeline Python com detectores falsos injetados, CLI e codigos de saida
 - filtro espacial de celular, overlay (ancora, escala, roll, EMA, hold/fade) e renderizacao
 - janela deslizante (PERCLOS/VATS), MAR, relatorio JSON/CSV e protecao contra formula em CSV
-- E2E: headers de seguranca, demo, review com eventos, exportacao e modo Camera com camera sintetica do Chromium
+- regra de proximidade celular-rosto validada nos dois runtimes contra 127 casos gerados (`shared/spatial-cases.json`)
+- E2E: headers de seguranca, demo, review com eventos, exportacao, modo Camera com camera sintetica e uma foto real de pessoa ao celular passando pelo pipeline completo
 
 ## Roadmap
 
 Detalhado em [`MASTER_EVOLUTION_PLAN.md`](MASTER_EVOLUTION_PLAN.md). Proximos passos principais:
 
-- Deteccao de celular no navegador (MediaPipe Object Detector, mesmo pacote ja usado).
 - Estimativa de olhar com landmarks de iris (468-477) para "eyes off road" alem da pose da cabeca.
 - Calibracao por motorista (EAR/MAR base nos primeiros segundos).
 - Alerta sonoro opcional via Web Audio.
