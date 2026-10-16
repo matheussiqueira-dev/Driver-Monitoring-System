@@ -3,7 +3,7 @@ import type { Point } from "../domain/geometry";
 import { AppError } from "../shared/errors";
 
 /** Pinned to the npm package version so JS, WASM and model stay in sync. */
-const TASKS_VISION_VERSION = "0.10.35";
+export const TASKS_VISION_VERSION = "1.1.1";
 const WASM_URL = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${TASKS_VISION_VERSION}/wasm`;
 const FACE_MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
