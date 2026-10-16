@@ -31,10 +31,15 @@ export class FaceLandmarkerService {
   private lastInferenceMs = -Infinity;
   private statusValue: ModelStatus = "idle";
   private connectionList: readonly Connection[] = [];
+  private delegateValue: "GPU" | "CPU" | null = null;
   frameId = 0;
 
   get status(): ModelStatus {
     return this.statusValue;
+  }
+
+  get delegate(): "GPU" | "CPU" | null {
+    return this.delegateValue;
   }
 
   get connections(): readonly Connection[] {
@@ -58,16 +63,25 @@ export class FaceLandmarkerService {
     // Dynamic import keeps MediaPipe out of the initial bundle.
     const { FaceLandmarker: FaceLandmarkerClass, FilesetResolver } = await import("@mediapipe/tasks-vision");
     const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
-    this.landmarker = await FaceLandmarkerClass.createFromOptions(fileset, {
-      baseOptions: { modelAssetPath: FACE_MODEL_URL, delegate: "GPU" },
-      runningMode: "VIDEO",
-      numFaces: 1,
-      minFaceDetectionConfidence: 0.5,
-      minFacePresenceConfidence: 0.5,
-      minTrackingConfidence: 0.5,
-      outputFaceBlendshapes: false,
-      outputFacialTransformationMatrixes: false,
-    });
+    const create = (delegate: "GPU" | "CPU"): Promise<FaceLandmarker> =>
+      FaceLandmarkerClass.createFromOptions(fileset, {
+        baseOptions: { modelAssetPath: FACE_MODEL_URL, delegate },
+        runningMode: "VIDEO",
+        numFaces: 1,
+        minFaceDetectionConfidence: 0.5,
+        minFacePresenceConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+        outputFaceBlendshapes: false,
+        outputFacialTransformationMatrixes: false,
+      });
+    try {
+      this.landmarker = await create("GPU");
+      this.delegateValue = "GPU";
+    } catch {
+      // WebGL unavailable or blocklisted (VMs, some drivers): the CPU delegate is slower but works.
+      this.landmarker = await create("CPU");
+      this.delegateValue = "CPU";
+    }
     this.connectionList = [
       ...FaceLandmarkerClass.FACE_LANDMARKS_TESSELATION,
       ...FaceLandmarkerClass.FACE_LANDMARKS_CONTOURS,

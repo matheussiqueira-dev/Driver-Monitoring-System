@@ -13,6 +13,8 @@ import { demoSignals, type FrameSignals } from "./signals";
 
 const DEMO_STEP_S = 1 / 30;
 const MAX_FRAME_GAP_S = 0.25;
+const NOTICE_DURATION_MS = 6000;
+const CAMERA_LOADING_MESSAGE = "Iniciando camera e Face Mesh...";
 const NO_FACE: FrameSignals = {
   facePresent: false,
   ear: null,
@@ -31,6 +33,8 @@ export interface MonitorDependencies {
   readonly camera: CameraSource;
   readonly media: { readonly demo: HTMLImageElement; readonly video: HTMLVideoElement };
   readonly track: (name: TelemetryEvent, payload?: EventPayload) => void;
+  /** Called when the controller changes mode on its own (e.g. camera failure falls back to demo). */
+  readonly onModeChange: (mode: SourceMode) => void;
 }
 
 /** Counts processed frames over a sliding one-second window. */
@@ -71,6 +75,8 @@ export class MonitorController {
   private simAccumulatorS = 0;
   private rafId: number | null = null;
   private modeRequest = 0;
+  /** Message that must stay visible for a while (e.g. why the camera could not start). */
+  private notice: { readonly text: string; readonly untilMs: number } | null = null;
 
   constructor(
     private readonly deps: MonitorDependencies,
@@ -113,6 +119,7 @@ export class MonitorController {
   async setMode(mode: SourceMode): Promise<SourceMode> {
     const request = ++this.modeRequest;
     this.mode = mode;
+    this.notice = null;
     this.resetSession();
 
     if (mode !== "camera") {
@@ -121,16 +128,19 @@ export class MonitorController {
     }
 
     try {
-      await Promise.all([this.deps.camera.start(), this.deps.landmarker.ensureReady()]);
-      if (request !== this.modeRequest) {
-        return this.mode; // user switched again while loading
+      const [started] = await Promise.all([this.deps.camera.start(), this.deps.landmarker.ensureReady()]);
+      if (request !== this.modeRequest || !started) {
+        // The user switched again while loading; the newer request owns the camera.
+        return this.mode;
       }
+      // Drop demo samples collected while the camera and model were loading.
+      this.resetSession();
       this.showCamera(true);
       this.deps.track("camera_ready", {
         width: this.deps.media.video.videoWidth,
         height: this.deps.media.video.videoHeight,
       });
-      this.deps.track("face_mesh_ready", { runtime: "web" });
+      this.deps.track("face_mesh_ready", { runtime: "web", delegate: this.deps.landmarker.delegate });
       return "camera";
     } catch (error) {
       const appError = toAppError(error);
@@ -146,10 +156,23 @@ export class MonitorController {
   }
 
   private fallBackToDemo(error: AppError): void {
+    this.modeRequest += 1;
     this.stopCamera();
     this.mode = "demo";
     this.resetSession();
-    this.deps.view.showStatus(`${userMessageFor(error)} Demo mantida ativa.`, "warn");
+    this.notice = {
+      text: `${userMessageFor(error)} Demo mantida ativa.`,
+      untilMs: performance.now() + NOTICE_DURATION_MS,
+    };
+    this.deps.onModeChange("demo");
+  }
+
+  private activeNotice(nowMs: number): string | null {
+    if (this.notice && nowMs < this.notice.untilMs) {
+      return this.notice.text;
+    }
+    this.notice = null;
+    return null;
   }
 
   private resetSession(): void {
@@ -212,7 +235,8 @@ export class MonitorController {
       this.rate.tick(nowMs);
     }
     this.deps.renderer.drawDemo(this.lastResult.signals, this.lastResult.attention, this.layers);
-    this.render(this.lastResult, nowMs, null, null);
+    const status = this.mode === "camera" ? CAMERA_LOADING_MESSAGE : this.activeNotice(nowMs);
+    this.render(this.lastResult, nowMs, status, null);
   }
 
   private cameraFrame(nowMs: number): void {
@@ -276,7 +300,7 @@ export class MonitorController {
       `landmarks: ${track?.rawLandmarksCount ?? 0}`,
       `video: ${video.videoWidth}x${video.videoHeight}`,
       `canvas: ${Math.round(width)}x${Math.round(height)} @${dpr.toFixed(2)}x`,
-      `faceMesh: ${this.deps.landmarker.status}`,
+      `faceMesh: ${this.deps.landmarker.status} (${this.deps.landmarker.delegate ?? "-"})`,
       `mirrored: ${String(this.deps.mapper.isMirrored)}`,
       `trackingFps: ${(track?.trackingFps ?? 0).toFixed(1)}`,
       `track: ${track?.status ?? "none"}`,

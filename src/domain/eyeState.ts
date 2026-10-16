@@ -50,7 +50,12 @@ export class EyeStateTracker {
   private closedStart: number | null = null;
   private blinkTimes: number[] = [];
 
-  constructor(private readonly config: ScoringConfig) {}
+  constructor(private config: ScoringConfig) {}
+
+  /** Change thresholds without losing an eye closure in progress. */
+  setConfig(config: ScoringConfig): void {
+    this.config = config;
+  }
 
   reset(): void {
     this.blinkFrames = 0;

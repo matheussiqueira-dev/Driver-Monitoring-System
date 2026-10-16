@@ -15,7 +15,7 @@ from dms.errors import ConfigError, SourceUnavailableError
 from dms.face_mesh import FaceResult
 from dms.head_pose import HeadPose
 from dms.pipeline import DMSPipeline
-from main import build_arg_parser, build_config, main
+from main import FrameClock, build_arg_parser, build_config, main
 
 FRAME = np.zeros((480, 640, 3), dtype=np.uint8)
 FACE_BBOX = (250, 100, 390, 280)
@@ -143,6 +143,41 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(code, SourceUnavailableError.exit_code)
         self.assertIn("Nao foi possivel abrir", stderr.getvalue())
+
+
+class FakeCapture:
+    def __init__(self, fps: float, positions_ms: List[float]) -> None:
+        self.fps = fps
+        self.positions_ms = positions_ms
+
+    def get(self, prop: int) -> float:
+        import cv2
+
+        if prop == cv2.CAP_PROP_FPS:
+            return self.fps
+        return self.positions_ms.pop(0) if self.positions_ms else 0.0
+
+
+class FrameClockTests(unittest.TestCase):
+    def test_uses_video_position_when_available(self) -> None:
+        clock = FrameClock(FakeCapture(30.0, [0.0, 33.3, 66.7, 100.0]), is_file=True)
+        stamps = [clock.next() for _ in range(4)]
+
+        self.assertAlmostEqual(stamps[-1], 0.1, places=3)
+        self.assertEqual(stamps, sorted(set(stamps)))
+
+    def test_falls_back_to_frame_index_when_position_is_missing(self) -> None:
+        clock = FrameClock(FakeCapture(25.0, []), is_file=True)
+        stamps = [clock.next() for _ in range(51)]
+
+        # 50 frames at 25 fps = 2 s of video, enough for duration-based rules to fire.
+        self.assertAlmostEqual(stamps[-1], 2.0, places=3)
+
+    def test_camera_timestamps_strictly_increase(self) -> None:
+        clock = FrameClock(FakeCapture(0.0, []), is_file=False)
+        stamps = [clock.next() for _ in range(5)]
+
+        self.assertTrue(all(b > a for a, b in zip(stamps, stamps[1:], strict=False)))
 
 
 if __name__ == "__main__":

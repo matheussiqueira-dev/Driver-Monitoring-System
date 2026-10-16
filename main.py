@@ -141,21 +141,31 @@ class FrameClock:
 
     MediaPipe VIDEO mode requires strictly increasing timestamps, and using the
     video's own time keeps duration-based rules (drowsiness, off-road) correct
-    when a file is processed faster or slower than real time.
+    when a file is processed faster or slower than real time. Some containers do
+    not report CAP_PROP_POS_MSEC; then the frame index and the declared FPS are
+    used instead.
     """
+
+    FALLBACK_FPS = 30.0
+    MIN_STEP_S = 0.001
 
     def __init__(self, cap: cv2.VideoCapture, is_file: bool) -> None:
         self.cap = cap
         self.is_file = is_file
         self.start = time.monotonic()
         self.last = -1.0
+        self.frames = 0
+        fps = cap.get(cv2.CAP_PROP_FPS) if is_file else 0.0
+        self.fps = fps if fps and fps > 0 else self.FALLBACK_FPS
 
     def next(self) -> float:
         if self.is_file:
-            timestamp = self.cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
+            position_s = self.cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
+            timestamp = position_s if position_s > self.last else self.frames / self.fps
         else:
             timestamp = time.monotonic() - self.start
-        timestamp = max(timestamp, self.last + 0.001)
+        self.frames += 1
+        timestamp = max(timestamp, self.last + self.MIN_STEP_S)
         self.last = timestamp
         return timestamp
 

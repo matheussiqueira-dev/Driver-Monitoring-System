@@ -55,8 +55,13 @@ export class AttentionScorer {
   private offroadStart: number | null = null;
   private lastFaceTime: number | null = null;
 
-  constructor(private readonly config: ScoringConfig) {
+  constructor(private config: ScoringConfig) {
     this.smoothed = config.scoreBase;
+  }
+
+  /** Change rules without resetting the smoothed score or timers in progress. */
+  setConfig(config: ScoringConfig): void {
+    this.config = config;
   }
 
   reset(): void {

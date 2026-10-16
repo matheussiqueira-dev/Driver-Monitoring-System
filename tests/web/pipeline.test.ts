@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { MonitoringPipeline } from "../../src/app/pipeline";
 import { demoSignals, type DemoProfile } from "../../src/app/signals";
 import { DEFAULT_SCORING_CONFIG } from "../../src/domain/config";
+import { applySensitivity } from "../../src/domain/sensitivity";
 
 const STEP_S = 1 / 30;
 
@@ -36,6 +37,27 @@ describe("demo signals through the real pipeline", () => {
     expect(types).toContain("Microssono");
     expect(types).toContain("Sem rosto");
     expect(pipeline.session.summary().minScore).toBeLessThan(40);
+  });
+
+  it("reconfigure keeps an eye closure in progress and the smoothed score", () => {
+    const pipeline = new MonitoringPipeline(DEFAULT_SCORING_CONFIG);
+    const closed = {
+      facePresent: true,
+      ear: 0.1,
+      headPose: { yaw: 0, pitch: 0, roll: 0 },
+      phonePresent: false,
+      phoneNearFace: false,
+    };
+    let last = pipeline.process(closed, 0);
+    for (let t = STEP_S; t < 1.0; t += STEP_S) {
+      last = pipeline.process(closed, t);
+    }
+    pipeline.reconfigure(applySensitivity(DEFAULT_SCORING_CONFIG, 80));
+    const after = pipeline.process(closed, 1.3);
+
+    expect(after.eyeState.closedDuration).toBeCloseTo(1.3, 5);
+    expect(after.eyeState.drowsy).toBe(true);
+    expect(after.attention.score).toBeLessThanOrEqual(last.attention.score);
   });
 
   it("reconfigure keeps the session aggregates", () => {

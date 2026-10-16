@@ -38,6 +38,15 @@ function bootstrap(): void {
     throw new Error("Canvas 2D indisponivel");
   }
 
+  const modeButtons = requireAll(".source-button", HTMLButtonElement);
+  const markActive = (mode: SourceMode): void => {
+    for (const button of modeButtons) {
+      const active = button.dataset.mode === mode;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-pressed", String(active));
+    }
+  };
+
   const mapper = new CoordinateMapper();
   const view = new MonitorView();
   const controller = new MonitorController(
@@ -51,6 +60,7 @@ function bootstrap(): void {
       camera: new CameraSource(video),
       media: { demo, video },
       track: trackEvent,
+      onModeChange: markActive,
     },
     Number(sensitivity.value),
   );
@@ -62,14 +72,6 @@ function bootstrap(): void {
   new ResizeObserver(syncViewport).observe(shell);
   syncViewport();
 
-  const modeButtons = requireAll(".source-button", HTMLButtonElement);
-  const markActive = (mode: SourceMode): void => {
-    for (const button of modeButtons) {
-      const active = button.dataset.mode === mode;
-      button.classList.toggle("is-active", active);
-      button.setAttribute("aria-pressed", String(active));
-    }
-  };
   for (const button of modeButtons) {
     button.addEventListener("click", () => {
       const mode = button.dataset.mode;
@@ -99,6 +101,16 @@ function bootstrap(): void {
 
   window.addEventListener("pagehide", () => {
     controller.stop();
+  });
+  // Restored from the back/forward cache: the loop and the camera were stopped on pagehide.
+  window.addEventListener("pageshow", (event) => {
+    if (!event.persisted) {
+      return;
+    }
+    if (controller.currentMode === "camera") {
+      void controller.setMode("demo").then(markActive);
+    }
+    controller.start();
   });
   controller.start();
 }

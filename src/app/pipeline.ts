@@ -17,8 +17,8 @@ export interface PipelineResult {
  * and identical for demo and camera sources.
  */
 export class MonitoringPipeline {
-  private eyeTracker: EyeStateTracker;
-  private scorer: AttentionScorer;
+  private readonly eyeTracker: EyeStateTracker;
+  private readonly scorer: AttentionScorer;
   readonly session = new SessionStats();
 
   constructor(config: ScoringConfig) {
@@ -26,10 +26,10 @@ export class MonitoringPipeline {
     this.scorer = new AttentionScorer(config);
   }
 
-  /** Swap rules (e.g. sensitivity change) without losing session aggregates. */
+  /** Swap rules (e.g. sensitivity change) keeping the score, timers and session aggregates. */
   reconfigure(config: ScoringConfig): void {
-    this.eyeTracker = new EyeStateTracker(config);
-    this.scorer = new AttentionScorer(config);
+    this.eyeTracker.setConfig(config);
+    this.scorer.setConfig(config);
   }
 
   reset(): void {
