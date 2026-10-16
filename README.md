@@ -2,7 +2,7 @@
 
 Sistema de Monitoramento do Motorista em tempo real usando Visao Computacional e IA. O projeto combina uma interface web profissional para portfolio e deploy na Vercel com um pipeline Python/OpenCV local para camera, Face Mesh, Eye Aspect Ratio, Head Pose Estimation, deteccao de celular e score continuo de atencao.
 
-![Driver Monitoring System](assets/og-image.png)
+![Driver Monitoring System](public/assets/og-image.png)
 
 ## Desenvolvedor
 
@@ -161,7 +161,7 @@ Para observabilidade:
 
 - Vercel Web Analytics deve ser habilitado no dashboard do projeto.
 - Speed Insights e carregado por meta tag quando o script da Vercel estiver disponivel para o projeto.
-- Google Analytics pode ser conectado futuramente sem alterar a arquitetura, usando o adaptador em `analytics.js`.
+- Google Analytics pode ser conectado futuramente sem alterar a arquitetura, usando o adaptador em `src/infra/analytics.ts`.
 
 ## Deploy na Vercel
 

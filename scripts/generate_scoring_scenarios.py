@@ -34,7 +34,9 @@ def build_document() -> Dict[str, Any]:
 
 
 def main() -> None:
-    OUTPUT.write_text(json.dumps(build_document(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    # newline="\n" keeps the file byte-identical on Windows and Linux (CI diffs it).
+    content = json.dumps(build_document(), indent=2, ensure_ascii=False) + "\n"
+    OUTPUT.write_text(content, encoding="utf-8", newline="\n")
     print(f"Wrote {OUTPUT.relative_to(ROOT)}")
 
 
