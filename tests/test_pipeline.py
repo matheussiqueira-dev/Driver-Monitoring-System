@@ -122,6 +122,48 @@ class PipelineTests(unittest.TestCase):
         self.assertIn("Olhar fora", later.attention.events)
 
 
+class CountingPhone(FakePhone):
+    def __init__(self, bbox) -> None:
+        super().__init__(bbox)
+        self.calls = 0
+
+    def detect(self, frame: np.ndarray) -> YoloDetections:
+        self.calls += 1
+        return super().detect(frame)
+
+
+class DetectorIntervalTests(unittest.TestCase):
+    def test_detectors_run_every_n_frames_and_reuse_the_last_result(self) -> None:
+        phone = CountingPhone((380, 150, 440, 260))
+        config = DMSConfig()
+        pipeline = DMSPipeline(
+            face_source=FakeFace(True),
+            eye_tracker=EyeStateTracker(config),
+            head_pose_source=FakeHeadPose(STRAIGHT_AHEAD),
+            overlay_source=FakeOverlay(),
+            scorer=AttentionScorer(config),
+            phone_detector=phone,
+            detector_interval=3,
+        )
+        results = [pipeline.process(FRAME, 1.0 + i / 30) for i in range(7)]
+
+        self.assertEqual(phone.calls, 3)  # frames 0, 3 and 6
+        self.assertTrue(all(result.phone_near_face for result in results))
+
+    def test_interval_must_be_positive(self) -> None:
+        with self.assertRaises(ConfigError):
+            DMSConfig(detector_interval_frames=0)
+        with self.assertRaises(ValueError):
+            DMSPipeline(
+                face_source=FakeFace(True),
+                eye_tracker=EyeStateTracker(DMSConfig()),
+                head_pose_source=FakeHeadPose(STRAIGHT_AHEAD),
+                overlay_source=FakeOverlay(),
+                scorer=AttentionScorer(DMSConfig()),
+                detector_interval=0,
+            )
+
+
 class CliTests(unittest.TestCase):
     def test_config_overrides_are_validated(self) -> None:
         args = build_arg_parser().parse_args(["--width", "640", "--no-mirror"])

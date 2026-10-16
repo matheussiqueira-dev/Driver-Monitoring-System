@@ -54,6 +54,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--height", type=int, default=None, help="Capture height")
     parser.add_argument("--no-mirror", action="store_true", help="Disable mirroring the camera feed")
     parser.add_argument("--headless", action="store_true", help="Run without opening an OpenCV window")
+    parser.add_argument(
+        "--detect-every", type=int, default=None, help="Run YOLO/hand detection every N frames (default 3)"
+    )
     parser.add_argument("--max-frames", type=int, default=None, help="Stop after processing this number of frames")
     return parser
 
@@ -69,6 +72,8 @@ def build_config(args: argparse.Namespace) -> DMSConfig:
         overrides["yolo_weights"] = args.weights
     if args.device:
         overrides["yolo_device"] = args.device
+    if args.detect_every is not None:
+        overrides["detector_interval_frames"] = args.detect_every
     if args.no_mirror:
         overrides["mirror"] = False
     if args.no_mesh:
@@ -133,6 +138,7 @@ def build_pipeline(config: DMSConfig, args: argparse.Namespace) -> DMSPipeline:
         scorer=AttentionScorer(config),
         phone_detector=phone_detector,
         hand_source=hand_source,
+        detector_interval=config.detector_interval_frames,
     )
 
 
