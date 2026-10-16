@@ -15,6 +15,14 @@ export interface ScoringConfig {
   readonly pitchThreshold: number;
   readonly offroadTimeS: number;
   readonly noFaceGraceS: number;
+  readonly perclosWindowS: number;
+  readonly perclosMinCoverageS: number;
+  readonly perclosThreshold: number;
+  readonly marThreshold: number;
+  readonly yawnMinTimeS: number;
+  readonly vatsWindowS: number;
+  readonly vatsOffroadLimitS: number;
+  readonly rollingMaxGapS: number;
   readonly scoreBase: number;
   readonly scoreSmoothing: number;
   readonly scoreFloor: number;
@@ -27,6 +35,9 @@ export interface ScoringConfig {
   readonly penaltyOffroad: number;
   readonly penaltyDrowsy: number;
   readonly penaltyMicrosleep: number;
+  readonly penaltyFatigue: number;
+  readonly penaltyYawn: number;
+  readonly penaltyVats: number;
   readonly bonusStable: number;
 }
 
@@ -40,6 +51,14 @@ const KEY_MAP = {
   pitch_threshold: "pitchThreshold",
   offroad_time_s: "offroadTimeS",
   no_face_grace_s: "noFaceGraceS",
+  perclos_window_s: "perclosWindowS",
+  perclos_min_coverage_s: "perclosMinCoverageS",
+  perclos_threshold: "perclosThreshold",
+  mar_threshold: "marThreshold",
+  yawn_min_time_s: "yawnMinTimeS",
+  vats_window_s: "vatsWindowS",
+  vats_offroad_limit_s: "vatsOffroadLimitS",
+  rolling_max_gap_s: "rollingMaxGapS",
   score_base: "scoreBase",
   score_smoothing: "scoreSmoothing",
   score_floor: "scoreFloor",
@@ -52,6 +71,9 @@ const KEY_MAP = {
   penalty_offroad: "penaltyOffroad",
   penalty_drowsy: "penaltyDrowsy",
   penalty_microsleep: "penaltyMicrosleep",
+  penalty_fatigue: "penaltyFatigue",
+  penalty_yawn: "penaltyYawn",
+  penalty_vats: "penaltyVats",
   bonus_stable: "bonusStable",
 } as const satisfies Record<string, keyof ScoringConfig>;
 
@@ -80,6 +102,18 @@ export function parseScoringConfig(raw: unknown): ScoringConfig {
   }
   if (config.drowsyTimeS > config.microsleepTimeS) {
     throw new AppError("CONFIG_INVALID", "drowsy_time_s must not exceed microsleep_time_s");
+  }
+  if (config.perclosThreshold <= 0 || config.perclosThreshold > 1) {
+    throw new AppError("CONFIG_INVALID", "perclos_threshold must be in (0, 1]");
+  }
+  if (config.perclosMinCoverageS > config.perclosWindowS) {
+    throw new AppError("CONFIG_INVALID", "perclos_min_coverage_s must not exceed perclos_window_s");
+  }
+  if (config.vatsOffroadLimitS > config.vatsWindowS) {
+    throw new AppError("CONFIG_INVALID", "vats_offroad_limit_s must not exceed vats_window_s");
+  }
+  if (Math.min(config.perclosWindowS, config.vatsWindowS, config.rollingMaxGapS, config.yawnMinTimeS) <= 0) {
+    throw new AppError("CONFIG_INVALID", "PERCLOS/VATS/yawn windows and times must be positive");
   }
   return Object.freeze(config);
 }

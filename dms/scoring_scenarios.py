@@ -13,6 +13,7 @@ from .attention import AttentionScorer
 from .config import DMSConfig
 from .ear import EyeStateTracker
 from .head_pose import HeadPose
+from .mouth import MouthStateTracker
 
 Frame = Dict[str, Any]
 
@@ -24,6 +25,7 @@ def _frames(
     *,
     start: float = 0.0,
     ear: Optional[float] = 0.3,
+    mar: float = 0.05,
     yaw: float = 0.0,
     pitch: float = 0.0,
     face: bool = True,
@@ -37,6 +39,7 @@ def _frames(
                 "t": round(start + index * STEP_S, 4),
                 "face_present": face,
                 "ear": ear if face else None,
+                "mar": mar if face else None,
                 "yaw": yaw if face else None,
                 "pitch": pitch if face else None,
                 "phone_present": phone,
@@ -66,6 +69,12 @@ SCENARIOS: Dict[str, List[Frame]] = {
     "phone_far_from_face": _sequence(_frames(3), _frames(10, phone=True)),
     "face_lost": _sequence(_frames(5), _frames(20, face=False)),
     "no_face_from_start": _frames(10, face=False),
+    # Short closures (0.3 s, below the drowsiness time) repeated for 15 s: only PERCLOS catches it.
+    "high_perclos": _sequence(*[part for _ in range(15) for part in (_frames(7), _frames(3, ear=0.12))]),
+    "yawn": _sequence(_frames(3), _frames(22, mar=0.75), _frames(5)),
+    "talking_is_not_yawning": _sequence(*[part for _ in range(4) for part in (_frames(4, mar=0.7), _frames(3))]),
+    # 1.2 s glances (below offroad_time_s) with 0.8 s back on the road: Euro NCAP VATS.
+    "repeated_glances": _sequence(*[part for _ in range(10) for part in (_frames(12, yaw=26.0), _frames(8))]),
 }
 
 
@@ -73,10 +82,12 @@ def replay_scenario(frames: List[Frame], config: Optional[DMSConfig] = None) -> 
     config = config or DMSConfig()
     eye_tracker = EyeStateTracker(config)
     scorer = AttentionScorer(config)
+    mouth_tracker = MouthStateTracker(config)
     outputs: List[Dict[str, Any]] = []
 
     for frame in frames:
         eye_state = eye_tracker.update(frame["ear"], frame["t"])
+        mouth_state = mouth_tracker.update(frame["mar"], frame["t"])
         head_pose = None
         if frame["face_present"]:
             head_pose = HeadPose(yaw=frame["yaw"], pitch=frame["pitch"], roll=0.0)
@@ -87,6 +98,7 @@ def replay_scenario(frames: List[Frame], config: Optional[DMSConfig] = None) -> 
             phone_near_face=frame["phone_near_face"],
             face_present=frame["face_present"],
             timestamp=frame["t"],
+            mouth_state=mouth_state,
         )
         outputs.append(
             {
@@ -98,6 +110,10 @@ def replay_scenario(frames: List[Frame], config: Optional[DMSConfig] = None) -> 
                 "drowsy": eye_state.drowsy,
                 "microsleep": eye_state.microsleep,
                 "blink_rate": eye_state.blink_rate,
+                "perclos": None if eye_state.perclos is None else round(eye_state.perclos, 6),
+                "yawning": mouth_state.yawning,
+                "yawn_count": mouth_state.yawn_count,
+                "offroad_window_s": round(state.offroad_window_s, 6),
             }
         )
     return outputs

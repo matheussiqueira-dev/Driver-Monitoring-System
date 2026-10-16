@@ -1,4 +1,5 @@
 import type { ScoringConfig } from "../domain/config";
+import { buildSessionReport, type SessionReport } from "../domain/report";
 import { applySensitivity } from "../domain/sensitivity";
 import type { TelemetryEvent, EventPayload } from "../infra/analytics";
 import type { CameraSource } from "../infra/camera";
@@ -18,6 +19,7 @@ const CAMERA_LOADING_MESSAGE = "Iniciando camera e Face Mesh...";
 const NO_FACE: FrameSignals = {
   facePresent: false,
   ear: null,
+  mar: null,
   headPose: null,
   phonePresent: false,
   phoneNearFace: false,
@@ -113,6 +115,20 @@ export class MonitorController {
   setSensitivity(value: number): void {
     this.sensitivity = value;
     this.pipeline.reconfigure(applySensitivity(this.deps.baseConfig, value));
+  }
+
+  /** Snapshot of the current session for export. */
+  buildReport(now: Date = new Date()): SessionReport {
+    const { session } = this.pipeline;
+    return buildSessionReport({
+      generatedAt: now,
+      mode: this.mode,
+      sensitivity: this.sensitivity,
+      config: applySensitivity(this.deps.baseConfig, this.sensitivity),
+      summary: session.summary(),
+      onsets: session.onsets,
+      scoreHistory: session.history,
+    });
   }
 
   /** Switch source. Resolves to the mode actually active (camera may fall back to demo). */
@@ -260,7 +276,14 @@ export class MonitorController {
       return NO_FACE;
     }
     // Phone detection runs only in the Python engine for now.
-    return { facePresent: true, ear: track.ear, headPose: track.pose, phonePresent: false, phoneNearFace: false };
+    return {
+      facePresent: true,
+      ear: track.ear,
+      mar: track.mar,
+      headPose: track.pose,
+      phonePresent: false,
+      phoneNearFace: false,
+    };
   }
 
   private process(signals: FrameSignals, timestampS: number): PipelineResult {

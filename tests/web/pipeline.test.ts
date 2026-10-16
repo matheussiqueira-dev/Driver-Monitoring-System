@@ -36,6 +36,7 @@ describe("demo signals through the real pipeline", () => {
     expect(types).toContain("Sonolencia");
     expect(types).toContain("Microssono");
     expect(types).toContain("Sem rosto");
+    expect(types).toContain("Bocejo");
     expect(pipeline.session.summary().minScore).toBeLessThan(40);
   });
 
@@ -44,6 +45,7 @@ describe("demo signals through the real pipeline", () => {
     const closed = {
       facePresent: true,
       ear: 0.1,
+      mar: 0.05,
       headPose: { yaw: 0, pitch: 0, roll: 0 },
       phonePresent: false,
       phoneNearFace: false,

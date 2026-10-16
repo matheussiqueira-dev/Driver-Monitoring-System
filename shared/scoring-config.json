@@ -8,6 +8,14 @@
   "pitch_threshold": 15.0,
   "offroad_time_s": 1.5,
   "no_face_grace_s": 1.0,
+  "perclos_window_s": 60.0,
+  "perclos_min_coverage_s": 10.0,
+  "perclos_threshold": 0.15,
+  "mar_threshold": 0.6,
+  "yawn_min_time_s": 1.5,
+  "vats_window_s": 30.0,
+  "vats_offroad_limit_s": 10.0,
+  "rolling_max_gap_s": 0.5,
   "score_base": 100.0,
   "score_smoothing": 0.8,
   "score_floor": 0.0,
@@ -20,5 +28,8 @@
   "penalty_offroad": 20.0,
   "penalty_drowsy": 30.0,
   "penalty_microsleep": 50.0,
+  "penalty_fatigue": 15.0,
+  "penalty_yawn": 10.0,
+  "penalty_vats": 20.0,
   "bonus_stable": 5.0
 }

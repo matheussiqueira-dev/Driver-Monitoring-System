@@ -1,11 +1,22 @@
 import type { ScoringConfig } from "./config";
 import type { EyeState } from "./eyeState";
 import { clamp } from "./geometry";
+import type { MouthState } from "./mouthState";
+import { RollingDutyCycle } from "./rolling";
 
 export type AttentionLabel = "Atento" | "Alerta" | "Distraido";
 export type RiskLevel = "ok" | "warn" | "danger";
 
-export type AttentionEvent = "Sem rosto" | "Microssono" | "Sonolencia" | "Olhar fora" | "Celular" | "Celular suspeito";
+export type AttentionEvent =
+  | "Sem rosto"
+  | "Microssono"
+  | "Sonolencia"
+  | "Fadiga"
+  | "Bocejo"
+  | "Olhar fora"
+  | "Distracao acumulada"
+  | "Celular"
+  | "Celular suspeito";
 
 export interface HeadPose {
   readonly yaw: number;
@@ -15,6 +26,8 @@ export interface HeadPose {
 
 export interface AttentionInput {
   readonly eyeState: EyeState;
+  /** Null when the mouth is not tracked (no yawn penalty). */
+  readonly mouthState: MouthState | null;
   readonly headPose: HeadPose | null;
   readonly phonePresent: boolean;
   readonly phoneNearFace: boolean;
@@ -29,6 +42,8 @@ export interface AttentionState {
   readonly label: AttentionLabel;
   readonly level: RiskLevel;
   readonly events: readonly AttentionEvent[];
+  /** Seconds of off-road gaze within the last vatsWindowS (Euro NCAP VATS). */
+  readonly offroadWindowS: number;
 }
 
 export function labelForScore(score: number, config: ScoringConfig): AttentionLabel {
@@ -54,9 +69,11 @@ export class AttentionScorer {
   private smoothed: number;
   private offroadStart: number | null = null;
   private lastFaceTime: number | null = null;
+  private readonly offroadWindow: RollingDutyCycle;
 
   constructor(private config: ScoringConfig) {
     this.smoothed = config.scoreBase;
+    this.offroadWindow = new RollingDutyCycle(config.vatsWindowS, config.rollingMaxGapS);
   }
 
   /** Change rules without resetting the smoothed score or timers in progress. */
@@ -68,6 +85,7 @@ export class AttentionScorer {
     this.smoothed = this.config.scoreBase;
     this.offroadStart = null;
     this.lastFaceTime = null;
+    this.offroadWindow.reset();
   }
 
   update(input: AttentionInput): AttentionState {
@@ -90,6 +108,17 @@ export class AttentionScorer {
       events.push("Sonolencia");
     }
 
+    const { perclos } = input.eyeState;
+    if (perclos !== null && perclos >= config.perclosThreshold) {
+      penalty += config.penaltyFatigue;
+      events.push("Fadiga");
+    }
+
+    if (input.mouthState?.yawning) {
+      penalty += config.penaltyYawn;
+      events.push("Bocejo");
+    }
+
     const pose = input.headPose;
     const offroad =
       pose !== null && (Math.abs(pose.yaw) > config.yawThreshold || Math.abs(pose.pitch) > config.pitchThreshold);
@@ -102,6 +131,14 @@ export class AttentionScorer {
       }
     } else {
       this.offroadStart = null;
+    }
+
+    if (pose !== null) {
+      this.offroadWindow.add(input.timestampS, offroad);
+    }
+    if (this.offroadWindow.activeS >= config.vatsOffroadLimitS) {
+      penalty += config.penaltyVats;
+      events.push("Distracao acumulada");
     }
 
     if (input.phoneNearFace) {
@@ -118,6 +155,6 @@ export class AttentionScorer {
     const score = clamp(this.smoothed, config.scoreFloor, config.scoreCeiling);
     const label = labelForScore(score, config);
 
-    return { score, rawScore, label, level: levelForLabel(label), events };
+    return { score, rawScore, label, level: levelForLabel(label), events, offroadWindowS: this.offroadWindow.activeS };
   }
 }

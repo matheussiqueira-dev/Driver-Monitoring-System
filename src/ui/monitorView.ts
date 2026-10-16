@@ -12,7 +12,10 @@ const EVENT_LEVEL: Record<AttentionEvent, RiskLevel> = {
   "Sem rosto": "warn",
   Microssono: "danger",
   Sonolencia: "danger",
+  Fadiga: "warn",
+  Bocejo: "warn",
   "Olhar fora": "warn",
+  "Distracao acumulada": "warn",
   Celular: "danger",
   "Celular suspeito": "warn",
 };
@@ -67,6 +70,10 @@ export class MonitorView {
     kpiEventsNote: requireElement("#kpiEventsNote", HTMLElement),
     kpiEar: requireElement("#kpiEar", HTMLElement),
     kpiEarNote: requireElement("#kpiEarNote", HTMLElement),
+    kpiPerclos: requireElement("#kpiPerclos", HTMLElement),
+    kpiPerclosNote: requireElement("#kpiPerclosNote", HTMLElement),
+    kpiVats: requireElement("#kpiVats", HTMLElement),
+    kpiVatsNote: requireElement("#kpiVatsNote", HTMLElement),
     kpiFps: requireElement("#kpiFps", HTMLElement),
     trackingDebug: requireElement("#trackingDebug", HTMLPreElement),
   };
@@ -129,7 +136,7 @@ export class MonitorView {
 
   private renderDashboard(frame: FrameView): void {
     const { summary, history } = frame;
-    const { attention, eyeState } = frame.result;
+    const { attention, eyeState, mouthState } = frame.result;
 
     this.renderChart(history);
     setText(this.el.kpiScore, summary.averageScore === null ? "--" : summary.averageScore.toFixed(1));
@@ -150,6 +157,16 @@ export class MonitorView {
         : eyeState.eyesClosed
           ? `olhos fechados ha ${eyeState.closedDuration.toFixed(1)}s`
           : `${eyeState.blinkRate} piscadas/min`,
+    );
+    const yawns = `${mouthState.yawnCount} bocejo(s) no ultimo minuto`;
+    setText(this.el.kpiPerclos, eyeState.perclos === null ? "--" : `${(eyeState.perclos * 100).toFixed(1)}%`);
+    setText(this.el.kpiPerclosNote, eyeState.perclos === null ? `aguardando 10s de leitura; ${yawns}` : yawns);
+    setText(this.el.kpiVats, `${attention.offroadWindowS.toFixed(1)}s`);
+    setText(
+      this.el.kpiVatsNote,
+      attention.events.includes("Distracao acumulada")
+        ? "acima do limite Euro NCAP (10s em 30s)"
+        : "limite Euro NCAP: 10s em 30s",
     );
     setText(this.el.kpiFps, frame.fps.toFixed(1));
     setText(this.el.riskState, RISK_TEXT[attention.level]);

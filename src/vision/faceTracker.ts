@@ -1,5 +1,6 @@
 import type { HeadPose } from "../domain/attention";
 import { computeMeanEar } from "../domain/eyeState";
+import { computeMar } from "../domain/mouthState";
 import { boundingBox, clamp, distance, type Box, type Point } from "../domain/geometry";
 import { estimateHeadPose, faceAnchor } from "./headPose";
 
@@ -18,6 +19,7 @@ export interface FaceTrack {
   readonly box: Box;
   readonly anchor: Point;
   readonly ear: number | null;
+  readonly mar: number | null;
   readonly pose: HeadPose;
   readonly opacity: number;
   readonly status: TrackStatus;
@@ -112,6 +114,7 @@ export class FaceTracker {
       box,
       anchor,
       ear: computeMeanEar(landmarks),
+      mar: computeMar(landmarks),
       pose,
       opacity: 1,
       status: "tracking",

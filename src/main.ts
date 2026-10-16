@@ -2,7 +2,9 @@ import "./styles.css";
 import { MonitorController } from "./app/monitorController";
 import { DEFAULT_SCORING_CONFIG } from "./domain/config";
 import { initAnalytics, trackEvent } from "./infra/analytics";
+import { eventsToCsv } from "./domain/report";
 import { CameraSource } from "./infra/camera";
+import { downloadText } from "./infra/download";
 import { registerServiceWorker } from "./infra/pwa";
 import { toAppError, userMessageFor } from "./shared/errors";
 import { requireAll, requireElement } from "./ui/dom";
@@ -91,6 +93,25 @@ function bootstrap(): void {
         controller.setLayer(layer, checkbox.checked);
         trackEvent("overlay_layer_toggled", { layer, enabled: checkbox.checked });
       }
+    });
+  }
+
+  for (const button of requireAll("[data-export]", HTMLButtonElement)) {
+    button.addEventListener("click", () => {
+      const format = button.dataset.export === "csv" ? "csv" : "json";
+      const report = controller.buildReport();
+      const stamp = report.generatedAt.replaceAll(":", "-").slice(0, 19);
+      if (format === "csv") {
+        downloadText(`dms-sessao-${stamp}.csv`, eventsToCsv(report), "text/csv;charset=utf-8");
+      } else {
+        downloadText(
+          `dms-sessao-${stamp}.json`,
+          `${JSON.stringify(report, null, 2)}
+`,
+          "application/json",
+        );
+      }
+      trackEvent("report_exported", { format, events: report.summary.eventCount });
     });
   }
 

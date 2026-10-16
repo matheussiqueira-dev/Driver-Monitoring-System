@@ -181,6 +181,16 @@
               <small id="kpiEarNote">sem leitura</small>
             </article>
             <article class="kpi-card">
+              <span>Fadiga (PERCLOS 60s)</span>
+              <strong id="kpiPerclos">--</strong>
+              <small id="kpiPerclosNote">aguardando 10s de leitura</small>
+            </article>
+            <article class="kpi-card">
+              <span>Distracao acumulada (30s)</span>
+              <strong id="kpiVats">0.0s</strong>
+              <small id="kpiVatsNote">limite Euro NCAP: 10s em 30s</small>
+            </article>
+            <article class="kpi-card">
               <span>FPS do pipeline</span>
               <strong id="kpiFps">--</strong>
               <small id="kpiFpsNote">frames processados por segundo</small>
@@ -210,6 +220,11 @@
                 <span>acao recomendada</span>
               </div>
               <p id="insightText">Coletando dados da sessao.</p>
+              <div class="export-row" role="group" aria-label="Exportar relatorio da sessao">
+                <button class="ghost-button" type="button" data-export="json">Exportar JSON</button>
+                <button class="ghost-button" type="button" data-export="csv">Exportar CSV</button>
+              </div>
+              <small class="export-note">O relatorio e gerado no navegador; nada e enviado.</small>
             </article>
           </div>
 
@@ -247,7 +262,7 @@
             <article>
               <span>02</span>
               <h3>Landmarks</h3>
-              <p>MediaPipe Face Mesh entrega 468 pontos com suavizacao temporal via EMA.</p>
+              <p>MediaPipe Face Landmarker entrega 478 pontos com suavizacao temporal via EMA.</p>
             </article>
             <article>
               <span>03</span>

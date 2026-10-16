@@ -11,6 +11,7 @@ export type TelemetryEvent =
   | "face_mesh_ready"
   | "face_mesh_error"
   | "attention_event"
+  | "report_exported"
   | "web_vital"
   | "client_error"
   | "pwa_service_worker_ready"

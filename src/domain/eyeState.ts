@@ -1,5 +1,6 @@
 import type { ScoringConfig } from "./config";
 import { distance, type Point } from "./geometry";
+import { RollingDutyCycle } from "./rolling";
 
 /** MediaPipe Face Mesh indices: p1..p6 of the EAR formula, per eye. */
 export const LEFT_EYE_INDICES = [362, 385, 387, 263, 373, 380] as const;
@@ -14,6 +15,8 @@ export interface EyeState {
   readonly drowsy: boolean;
   readonly microsleep: boolean;
   readonly closedDuration: number;
+  /** Share of the last perclosWindowS with eyes closed; null until enough coverage. */
+  readonly perclos: number | null;
 }
 
 /** Eye Aspect Ratio (Soukupova & Cech, 2016). Returns null when landmarks are missing. */
@@ -49,10 +52,13 @@ export class EyeStateTracker {
   private blinkFrames = 0;
   private closedStart: number | null = null;
   private blinkTimes: number[] = [];
+  private readonly closure: RollingDutyCycle;
 
-  constructor(private config: ScoringConfig) {}
+  constructor(private config: ScoringConfig) {
+    this.closure = new RollingDutyCycle(config.perclosWindowS, config.rollingMaxGapS);
+  }
 
-  /** Change thresholds without losing an eye closure in progress. */
+  /** Change thresholds without losing an eye closure in progress (the PERCLOS window keeps its size). */
   setConfig(config: ScoringConfig): void {
     this.config = config;
   }
@@ -61,6 +67,7 @@ export class EyeStateTracker {
     this.blinkFrames = 0;
     this.closedStart = null;
     this.blinkTimes = [];
+    this.closure.reset();
   }
 
   /** @param timestampS monotonic time in seconds */
@@ -73,9 +80,11 @@ export class EyeStateTracker {
         drowsy: false,
         microsleep: false,
         closedDuration: 0,
+        perclos: this.closure.ratio(this.config.perclosMinCoverageS),
       };
     }
 
+    this.closure.add(timestampS, ear < this.config.earThreshold);
     if (ear < this.config.earThreshold) {
       this.blinkFrames += 1;
       this.closedStart ??= timestampS;
@@ -101,6 +110,7 @@ export class EyeStateTracker {
       drowsy: closedDuration >= this.config.drowsyTimeS,
       microsleep: closedDuration >= this.config.microsleepTimeS,
       closedDuration,
+      perclos: this.closure.ratio(this.config.perclosMinCoverageS),
     };
   }
 

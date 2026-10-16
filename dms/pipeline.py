@@ -17,6 +17,7 @@ from .detection import YoloDetections
 from .ear import LEFT_EYE_IDX, RIGHT_EYE_IDX, EyeState, EyeStateTracker, compute_ear
 from .face_mesh import FaceResult
 from .head_pose import HeadPose
+from .mouth import MouthState, MouthStateTracker, compute_mar
 from .overlay import OverlayTransform
 from .spatial import is_phone_near_face
 
@@ -56,6 +57,7 @@ class FrameResult:
     hand_boxes: List[BBox] = field(default_factory=list)
     phone_present: bool = False
     phone_near_face: bool = False
+    mouth_state: Optional[MouthState] = None
 
 
 class DMSPipeline:
@@ -69,6 +71,7 @@ class DMSPipeline:
         scorer: AttentionScorer,
         phone_detector: Optional[PhoneDetector] = None,
         hand_source: Optional[HandSource] = None,
+        mouth_tracker: Optional[MouthStateTracker] = None,
         detector_interval: int = 1,
     ) -> None:
         if detector_interval < 1:
@@ -80,6 +83,7 @@ class DMSPipeline:
         self.scorer = scorer
         self.phone_detector = phone_detector
         self.hand_source = hand_source
+        self.mouth_tracker = mouth_tracker
         self.detector_interval = detector_interval
         self._frame_index = 0
         self._last_detections: Optional[YoloDetections] = None
@@ -100,12 +104,15 @@ class DMSPipeline:
         face = self.face_source.process(frame, timestamp_ms)
 
         ear: Optional[float] = None
+        mar: Optional[float] = None
         head_pose: Optional[HeadPose] = None
         if face.face_present and face.landmarks is not None:
             ear = (compute_ear(face.landmarks, LEFT_EYE_IDX) + compute_ear(face.landmarks, RIGHT_EYE_IDX)) / 2.0
+            mar = compute_mar(face.landmarks)
             head_pose = self.head_pose_source.estimate(face.landmarks, frame.shape[:2])
         overlay = self.overlay_source.update(face.landmarks, frame.shape, head_pose)
         eye_state = self.eye_tracker.update(ear, timestamp_s)
+        mouth_state = self.mouth_tracker.update(mar, timestamp_s) if self.mouth_tracker is not None else None
 
         detections, hand_boxes = self._run_detectors(frame, timestamp_ms)
         phone_present = False
@@ -125,6 +132,7 @@ class DMSPipeline:
             phone_near_face=phone_near_face,
             face_present=face.face_present,
             timestamp=timestamp_s,
+            mouth_state=mouth_state,
         )
         return FrameResult(
             face=face,
@@ -136,4 +144,5 @@ class DMSPipeline:
             hand_boxes=list(hand_boxes),
             phone_present=phone_present,
             phone_near_face=phone_near_face,
+            mouth_state=mouth_state,
         )

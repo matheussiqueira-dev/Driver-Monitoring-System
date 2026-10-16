@@ -16,6 +16,7 @@ from dms.ear import EyeStateTracker
 from dms.errors import DMSError, SourceUnavailableError
 from dms.face_mesh import FaceMeshDetector
 from dms.head_pose import HeadPoseEstimator
+from dms.mouth import MouthStateTracker
 from dms.overlay import FaceOverlayTracker
 from dms.pipeline import DMSPipeline, FrameResult, HandSource, PhoneDetector
 from dms.utils import FPSCounter
@@ -138,6 +139,7 @@ def build_pipeline(config: DMSConfig, args: argparse.Namespace) -> DMSPipeline:
         scorer=AttentionScorer(config),
         phone_detector=phone_detector,
         hand_source=hand_source,
+        mouth_tracker=MouthStateTracker(config),
         detector_interval=config.detector_interval_frames,
     )
 
@@ -186,7 +188,7 @@ def draw_frame(frame: np.ndarray, result: FrameResult, config: DMSConfig, face_m
     if result.hand_boxes:
         draw_phone_boxes(frame, result.hand_boxes, "hand")
     draw_attention_bar(frame, result.attention.score)
-    draw_metrics(frame, result.eye_state, result.head_pose, result.attention, fps)
+    draw_metrics(frame, result.eye_state, result.head_pose, result.attention, fps, result.mouth_state)
 
 
 def print_cameras() -> None:

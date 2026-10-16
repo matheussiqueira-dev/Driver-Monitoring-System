@@ -65,6 +65,16 @@ class DMSConfig:
     offroad_time_s: float = _SCORING["offroad_time_s"]
     no_face_grace_s: float = _SCORING["no_face_grace_s"]
 
+    # Fatigue and distraction over time windows (PERCLOS, yawn, Euro NCAP VATS).
+    perclos_window_s: float = _SCORING["perclos_window_s"]
+    perclos_min_coverage_s: float = _SCORING["perclos_min_coverage_s"]
+    perclos_threshold: float = _SCORING["perclos_threshold"]
+    mar_threshold: float = _SCORING["mar_threshold"]
+    yawn_min_time_s: float = _SCORING["yawn_min_time_s"]
+    vats_window_s: float = _SCORING["vats_window_s"]
+    vats_offroad_limit_s: float = _SCORING["vats_offroad_limit_s"]
+    rolling_max_gap_s: float = _SCORING["rolling_max_gap_s"]
+
     yolo_weights: str = "yolov8n.pt"
     yolo_conf: float = 0.3
     yolo_iou: float = 0.45
@@ -88,6 +98,9 @@ class DMSConfig:
     penalty_offroad: float = _SCORING["penalty_offroad"]
     penalty_drowsy: float = _SCORING["penalty_drowsy"]
     penalty_microsleep: float = _SCORING["penalty_microsleep"]
+    penalty_fatigue: float = _SCORING["penalty_fatigue"]
+    penalty_yawn: float = _SCORING["penalty_yawn"]
+    penalty_vats: float = _SCORING["penalty_vats"]
     bonus_stable: float = _SCORING["bonus_stable"]
 
     show_mesh: bool = True
@@ -115,6 +128,14 @@ class DMSConfig:
             problems.append("score_floor deve ser menor que score_ceiling")
         if self.drowsy_time_s > self.microsleep_time_s:
             problems.append("drowsy_time_s nao pode exceder microsleep_time_s")
+        if not 0.0 < self.perclos_threshold <= 1.0:
+            problems.append("perclos_threshold deve estar em (0, 1]")
+        if self.perclos_min_coverage_s > self.perclos_window_s:
+            problems.append("perclos_min_coverage_s nao pode exceder perclos_window_s")
+        if self.vats_offroad_limit_s > self.vats_window_s:
+            problems.append("vats_offroad_limit_s nao pode exceder vats_window_s")
+        if min(self.perclos_window_s, self.vats_window_s, self.rolling_max_gap_s, self.yawn_min_time_s) <= 0:
+            problems.append("janelas e tempos de PERCLOS/VATS/bocejo devem ser positivos")
         if self.blink_min_frames > self.blink_max_frames:
             problems.append("blink_min_frames nao pode exceder blink_max_frames")
         if self.detector_interval_frames < 1:
