@@ -31,11 +31,16 @@ Essa separacao preserva o deploy simples na Vercel e evita que `main.py` seja in
 - Deteccao de celular por YOLO no pipeline Python.
 - Fallback de maos com MediaPipe Hands.
 - Attention Score 0-100 com suavizacao temporal.
+- Fadiga por PERCLOS (porcentagem de tempo com olhos fechados em 60s).
+- Bocejo por Mouth Aspect Ratio (MAR) sustentado.
+- Distracao acumulada no estilo Euro NCAP 2026 (VATS: 10s fora da via dentro de 30s).
+- Exportacao da sessao em JSON e CSV, gerada no navegador.
 - Dashboard com KPIs, tendencia, eventos e insights acionaveis.
 - PWA instalavel com manifest, service worker, icones e cache offline do app shell.
 - SEO tecnico com Open Graph, Twitter Cards, canonical, sitemap, robots e structured data.
 - Observabilidade preparada com Vercel Analytics, eventos do DMS, Web Vitals e captura de erros de cliente.
 - Headers de seguranca e cache configurados em `vercel.json`.
+- Documentacao de evolucao: [`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md), [`ROADMAP_AND_SKILLS.md`](ROADMAP_AND_SKILLS.md) e [`MASTER_EVOLUTION_PLAN.md`](MASTER_EVOLUTION_PLAN.md).
 - Auditoria tecnica versionada em [`docs/PRODUCTION_AUDIT.md`](docs/PRODUCTION_AUDIT.md).
 
 ## Arquitetura
@@ -58,8 +63,9 @@ Driver-Monitoring-System/
     pipeline.py                pipeline por frame com detectores injetaveis (Protocols)
     errors.py                  erros de dominio com exit codes
     attention.py, ear.py, ...  regras e modelos
+    rolling.py, mouth.py       janelas PERCLOS/VATS e bocejo (MAR)
   main.py                      CLI e composition root do engine Python
-  tests/                       unittest (Python) e tests/web (Vitest)
+  tests/                       unittest (Python), tests/web (Vitest) e tests/e2e (Playwright)
   scripts/generate_scoring_scenarios.py
   .github/workflows/ci.yml     lint, typecheck, testes, paridade e build
 ```
@@ -73,7 +79,7 @@ Driver-Monitoring-System/
 - Runtime local: Python 3.12, OpenCV, MediaPipe, NumPy.
 - Object Detection: Ultralytics YOLO.
 - Deploy: Vercel (output estatico).
-- Qualidade: Vitest, unittest, ESLint (strict type-checked), Prettier, Ruff, GitHub Actions.
+- Qualidade: Vitest, Playwright, unittest, ESLint (strict type-checked), Prettier, Ruff, GitHub Actions.
 
 ## Pipeline Python
 
@@ -82,9 +88,10 @@ Driver-Monitoring-System/
 3. MediaPipe Face Mesh para landmarks.
 4. EAR para olhos e sonolencia.
 5. solvePnP para yaw, pitch e roll.
-6. YOLO para celular e MediaPipe Hands como fallback.
-7. Fusao no `AttentionScorer`.
-8. Overlay OpenCV com malha, boxes, score, metricas e alertas.
+6. YOLO para celular e MediaPipe Hands como fallback, a cada N frames (`--detect-every`, padrao 3).
+7. MAR da boca para bocejo; PERCLOS e VATS em janelas deslizantes.
+8. Fusao no `AttentionScorer`.
+9. Overlay OpenCV com malha, boxes, score, metricas e alertas.
 
 ## Execucao Local da Interface Web
 
@@ -143,6 +150,7 @@ python main.py --source 0 --no-mirror
 python main.py --weights pesos_custom.pt --device cuda
 python main.py --no-yolo --no-hands --no-mesh
 python main.py --no-face-overlay --no-debug-overlay
+python main.py --detect-every 1   # YOLO em todo frame (mais preciso, ~2.4x mais lento em CPU)
 ```
 
 Execucao sem janela (headless), util para validar o pipeline com um video sem camera nem interface grafica:
@@ -187,6 +195,12 @@ Validacao local antes do deploy:
 npm run validate
 ```
 
+## Privacidade
+
+- O video da camera e processado apenas no navegador; nenhum frame sai do dispositivo.
+- O relatorio exportado e gerado localmente (Blob) e so sai do dispositivo se o usuario compartilhar o arquivo.
+- `@mediapipe/tasks-vision` 1.1.x inclui um coletor de estatisticas de uso que envia contadores de desempenho para `odml.pa.googleapis.com`. A CSP de producao (`connect-src`) nao permite esse host, entao o envio e bloqueado pelo navegador. O `vite preview` aplica os mesmos headers do `vercel.json`, entao o comportamento local e igual ao de producao.
+
 ## PWA
 
 O app inclui:
@@ -226,6 +240,8 @@ Implementado em `vercel.json`:
 
 ```bash
 npm run validate                              # format, lint, typecheck, Vitest e build
+npx playwright install chromium               # uma vez
+npm run test:e2e                              # E2E no build de producao com os headers do vercel.json
 python -m unittest discover -s tests          # com o venv Python 3.12 ativado
 python -m ruff check .                        # requer pip install -r requirements-dev.txt
 ```
@@ -234,22 +250,24 @@ O CI (`.github/workflows/ci.yml`) roda tudo isso em cada push e pull request, e 
 
 Cobertura atual:
 
-- paridade das regras de score entre web e Python em 10 cenarios (piscada, sonolencia, microssono, olhar fora, celular, perda de rosto)
+- paridade das regras de score entre web e Python em 14 cenarios (piscada, sonolencia, microssono, olhar fora, celular, perda de rosto, PERCLOS, bocejo, fala, VATS)
 - validacao da configuracao compartilhada nos dois runtimes
 - agregacao de sessao: eventos contados por ocorrencia, tendencia e tempo por nivel de risco
 - sinais da demo passando pelo pipeline real
 - pipeline Python com detectores falsos injetados, CLI e codigos de saida
 - filtro espacial de celular, overlay (ancora, escala, roll, EMA, hold/fade) e renderizacao
+- janela deslizante (PERCLOS/VATS), MAR, relatorio JSON/CSV e protecao contra formula em CSV
+- E2E: headers de seguranca, demo, review com eventos, exportacao e modo Camera com camera sintetica do Chromium
 
 ## Roadmap
 
-- Integrar telemetria real via WebSocket ou API.
-- Adicionar E2E com Playwright para fluxos Camera/Dashboard/PWA.
-- Treinar YOLO customizado com classes `cell phone` e `hand`.
-- Adicionar estimativa de gaze.
-- Detectar bocejo por abertura de boca.
-- Adaptar thresholds por usuario.
-- Exportar relatorios de sessoes.
+Detalhado em [`MASTER_EVOLUTION_PLAN.md`](MASTER_EVOLUTION_PLAN.md). Proximos passos principais:
+
+- Deteccao de celular no navegador (MediaPipe Object Detector, mesmo pacote ja usado).
+- Estimativa de olhar com landmarks de iris (468-477) para "eyes off road" alem da pose da cabeca.
+- Calibracao por motorista (EAR/MAR base nos primeiros segundos).
+- Alerta sonoro opcional via Web Audio.
+- Calibrar os limiares de PERCLOS e MAR com dataset publico (ex.: YawDD).
 
 ## Aviso
 
