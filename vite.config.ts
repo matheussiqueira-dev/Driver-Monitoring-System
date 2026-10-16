@@ -23,6 +23,25 @@ function serviceWorkerBuildId(): Plugin {
   };
 }
 
+interface VercelHeaderRule {
+  readonly source: string;
+  readonly headers: readonly { readonly key: string; readonly value: string }[];
+}
+
+/**
+ * The catch-all security headers from vercel.json (CSP, frame, referrer...),
+ * applied to `vite preview` so local runs and E2E tests behave like production.
+ */
+function productionHeaders(): Record<string, string> {
+  const config = JSON.parse(readFileSync(resolve(import.meta.dirname, "vercel.json"), "utf8")) as {
+    headers?: readonly VercelHeaderRule[];
+  };
+  const rule = config.headers?.find((entry) => entry.source === "/(.*)");
+  // HSTS on localhost would pin the browser to HTTPS for every localhost port.
+  const headers = (rule?.headers ?? []).filter((header) => header.key !== "Strict-Transport-Security");
+  return Object.fromEntries(headers.map((header) => [header.key, header.value]));
+}
+
 export default defineConfig({
   plugins: [serviceWorkerBuildId()],
   build: {
@@ -33,6 +52,9 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+  },
+  preview: {
+    headers: productionHeaders(),
   },
   test: {
     include: ["tests/web/**/*.test.ts"],
