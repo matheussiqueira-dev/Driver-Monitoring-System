@@ -79,23 +79,23 @@
   "rewrites": [
     {
       "source": "/monitor",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/dashboard",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/arquitetura",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/produto",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/sobre",
-      "destination": "/index.html"
+      "destination": "/"
     }
   ]
 }
