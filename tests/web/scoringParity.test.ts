@@ -4,6 +4,7 @@ import { AttentionScorer } from "../../src/domain/attention";
 import { DEFAULT_SCORING_CONFIG } from "../../src/domain/config";
 import { EyeStateTracker } from "../../src/domain/eyeState";
 import { MouthStateTracker } from "../../src/domain/mouthState";
+import { SessionStats } from "../../src/domain/session";
 
 interface ScenarioFrame {
   t: number;
@@ -31,10 +32,28 @@ interface ScenarioExpected {
   offroad_window_s: number;
 }
 
+interface ScenarioSession {
+  duration_s: number;
+  average_score: number | null;
+  min_score: number | null;
+  event_count: number;
+  events_by_type: Record<string, number>;
+  time_by_level_s: Record<"ok" | "warn" | "danger", number>;
+}
+
 interface Scenario {
   name: string;
   frames: ScenarioFrame[];
   expected: ScenarioExpected[];
+  session: ScenarioSession;
+}
+
+function expectCloseOrNull(actual: number | null, expected: number | null, context: string): void {
+  if (expected === null) {
+    expect(actual, context).toBeNull();
+  } else {
+    expect(actual, context).toBeCloseTo(expected, 5);
+  }
 }
 
 const scenarios = (scenariosDocument as { scenarios: Scenario[] }).scenarios;
@@ -48,6 +67,7 @@ describe("scoring parity with the Python reference engine", () => {
     const eyeTracker = new EyeStateTracker(DEFAULT_SCORING_CONFIG);
     const scorer = new AttentionScorer(DEFAULT_SCORING_CONFIG);
     const mouthTracker = new MouthStateTracker(DEFAULT_SCORING_CONFIG);
+    const session = new SessionStats();
 
     scenario.frames.forEach((frame, index) => {
       const expected = scenario.expected[index];
@@ -70,6 +90,7 @@ describe("scoring parity with the Python reference engine", () => {
         timestampS: frame.t,
       });
 
+      session.add(state, frame.t);
       const context = `${scenario.name} frame ${index} (t=${frame.t})`;
       expect(state.score, context).toBeCloseTo(expected.score, 5);
       expect(state.rawScore, context).toBeCloseTo(expected.raw_score, 5);
@@ -88,5 +109,19 @@ describe("scoring parity with the Python reference engine", () => {
       expect(mouthState.yawnCount, context).toBe(expected.yawn_count);
       expect(state.offroadWindowS, context).toBeCloseTo(expected.offroad_window_s, 5);
     });
+
+    const summary = session.summary();
+    const context = `${scenario.name} session`;
+    expect(summary.durationS, context).toBeCloseTo(scenario.session.duration_s, 5);
+    expectCloseOrNull(summary.averageScore, scenario.session.average_score, context);
+    expectCloseOrNull(summary.minScore, scenario.session.min_score, context);
+    expect(summary.eventCount, context).toBe(scenario.session.event_count);
+    expect(summary.eventsByType, context).toEqual(scenario.session.events_by_type);
+    for (const level of ["ok", "warn", "danger"] as const) {
+      expect(summary.timeByLevelS[level], `${context} ${level}`).toBeCloseTo(
+        scenario.session.time_by_level_s[level],
+        5,
+      );
+    }
   });
 });

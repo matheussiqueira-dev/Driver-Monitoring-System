@@ -6,7 +6,7 @@ from dataclasses import fields
 from pathlib import Path
 
 from dms.config import DMSConfig
-from dms.scoring_scenarios import SCENARIOS, replay_scenario
+from dms.scoring_scenarios import SCENARIOS, replay_scenario, replay_session
 
 SHARED = Path(__file__).resolve().parents[1] / "shared"
 
@@ -33,6 +33,7 @@ class ScoringScenarioTests(unittest.TestCase):
             with self.subTest(scenario=name):
                 self.assertEqual(committed[name]["frames"], frames)
                 self.assertEqual(committed[name]["expected"], replay_scenario(frames))
+                self.assertEqual(committed[name]["session"], replay_session(frames))
 
     def test_blink_is_not_drowsiness(self) -> None:
         outputs = replay_scenario(SCENARIOS["normal_blink"])

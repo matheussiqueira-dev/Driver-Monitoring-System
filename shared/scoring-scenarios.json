@@ -366,7 +366,19 @@
           "yawn_count": 0.0,
           "offroad_window_s": 0.0
         }
-      ]
+      ],
+      "session": {
+        "duration_s": 1.4,
+        "average_score": 100.0,
+        "min_score": 100.0,
+        "event_count": 0,
+        "events_by_type": {},
+        "time_by_level_s": {
+          "ok": 1.4,
+          "warn": 0.0,
+          "danger": 0.0
+        }
+      }
     },
     {
       "name": "normal_blink",
@@ -685,7 +697,19 @@
           "yawn_count": 0.0,
           "offroad_window_s": 0.0
         }
-      ]
+      ],
+      "session": {
+        "duration_s": 1.2,
+        "average_score": 100.0,
+        "min_score": 100.0,
+        "event_count": 0,
+        "events_by_type": {},
+        "time_by_level_s": {
+          "ok": 1.2,
+          "warn": 0.0,
+          "danger": 0.0
+        }
+      }
     },
     {
       "name": "drowsy_then_microsleep",
@@ -1390,7 +1414,22 @@
           "yawn_count": 0.0,
           "offroad_window_s": 0.0
         }
-      ]
+      ],
+      "session": {
+        "duration_s": 2.7,
+        "average_score": 94.072864,
+        "min_score": 76.291456,
+        "event_count": 2,
+        "events_by_type": {
+          "Sonolencia": 1,
+          "Microssono": 1
+        },
+        "time_by_level_s": {
+          "ok": 2.4,
+          "warn": 0.3,
+          "danger": 0.0
+        }
+      }
     },
     {
       "name": "brief_glance_away",
@@ -1829,7 +1868,19 @@
           "yawn_count": 0.0,
           "offroad_window_s": 1.0
         }
-      ]
+      ],
+      "session": {
+        "duration_s": 1.7,
+        "average_score": 100.0,
+        "min_score": 100.0,
+        "event_count": 0,
+        "events_by_type": {},
+        "time_by_level_s": {
+          "ok": 1.7,
+          "warn": 0.0,
+          "danger": 0.0
+        }
+      }
     },
     {
       "name": "sustained_offroad",
@@ -2528,7 +2579,21 @@
           "yawn_count": 0.0,
           "offroad_window_s": 2.4
         }
-      ]
+      ],
+      "session": {
+        "duration_s": 2.7,
+        "average_score": 97.048,
+        "min_score": 88.192,
+        "event_count": 1,
+        "events_by_type": {
+          "Olhar fora": 1
+        },
+        "time_by_level_s": {
+          "ok": 2.7,
+          "warn": 0.0,
+          "danger": 0.0
+        }
+      }
     },
     {
       "name": "looking_down",
@@ -3227,7 +3292,21 @@
           "yawn_count": 0.0,
           "offroad_window_s": 2.4
         }
-      ]
+      ],
+      "session": {
+        "duration_s": 2.7,
+        "average_score": 97.048,
+        "min_score": 88.192,
+        "event_count": 1,
+        "events_by_type": {
+          "Olhar fora": 1
+        },
+        "time_by_level_s": {
+          "ok": 2.7,
+          "warn": 0.0,
+          "danger": 0.0
+        }
+      }
     },
     {
       "name": "phone_near_face",
@@ -3566,7 +3645,21 @@
           "yawn_count": 0.0,
           "offroad_window_s": 0.0
         }
-      ]
+      ],
+      "session": {
+        "duration_s": 1.2,
+        "average_score": 86.5536,
+        "min_score": 73.1072,
+        "event_count": 1,
+        "events_by_type": {
+          "Celular": 1
+        },
+        "time_by_level_s": {
+          "ok": 0.9,
+          "warn": 0.3,
+          "danger": 0.0
+        }
+      }
     },
     {
       "name": "phone_far_from_face",
@@ -3905,7 +3998,21 @@
           "yawn_count": 0.0,
           "offroad_window_s": 0.0
         }
-      ]
+      ],
+      "session": {
+        "duration_s": 1.2,
+        "average_score": 95.96608,
+        "min_score": 91.93216,
+        "event_count": 1,
+        "events_by_type": {
+          "Celular suspeito": 1
+        },
+        "time_by_level_s": {
+          "ok": 1.2,
+          "warn": 0.0,
+          "danger": 0.0
+        }
+      }
     },
     {
       "name": "face_lost",
@@ -4532,7 +4639,21 @@
           "yawn_count": 0.0,
           "offroad_window_s": 0.0
         }
-      ]
+      ],
+      "session": {
+        "duration_s": 2.4,
+        "average_score": 95.06072,
+        "min_score": 80.24288,
+        "event_count": 1,
+        "events_by_type": {
+          "Sem rosto": 1
+        },
+        "time_by_level_s": {
+          "ok": 2.4,
+          "warn": 0.0,
+          "danger": 0.0
+        }
+      }
     },
     {
       "name": "no_face_from_start",
@@ -4799,7 +4920,21 @@
           "yawn_count": 0.0,
           "offroad_window_s": 0.0
         }
-      ]
+      ],
+      "session": {
+        "duration_s": 0.9,
+        "average_score": 87.097152,
+        "min_score": 79.194304,
+        "event_count": 1,
+        "events_by_type": {
+          "Sem rosto": 1
+        },
+        "time_by_level_s": {
+          "ok": 0.9,
+          "warn": 0.0,
+          "danger": 0.0
+        }
+      }
     },
     {
       "name": "high_perclos",
@@ -8506,7 +8641,21 @@
           "yawn_count": 0.0,
           "offroad_window_s": 0.0
         }
-      ]
+      ],
+      "session": {
+        "duration_s": 14.9,
+        "average_score": 95.283291,
+        "min_score": 85.000214,
+        "event_count": 1,
+        "events_by_type": {
+          "Fadiga": 1
+        },
+        "time_by_level_s": {
+          "ok": 14.9,
+          "warn": 0.0,
+          "danger": 0.0
+        }
+      }
     },
     {
       "name": "yawn",
@@ -9247,7 +9396,21 @@
           "yawn_count": 1.0,
           "offroad_window_s": 0.0
         }
-      ]
+      ],
+      "session": {
+        "duration_s": 2.9,
+        "average_score": 98.301279,
+        "min_score": 94.096,
+        "event_count": 1,
+        "events_by_type": {
+          "Bocejo": 1
+        },
+        "time_by_level_s": {
+          "ok": 2.9,
+          "warn": 0.0,
+          "danger": 0.0
+        }
+      }
     },
     {
       "name": "talking_is_not_yawning",
@@ -9926,7 +10089,19 @@
           "yawn_count": 0.0,
           "offroad_window_s": 0.0
         }
-      ]
+      ],
+      "session": {
+        "duration_s": 2.7,
+        "average_score": 100.0,
+        "min_score": 100.0,
+        "event_count": 0,
+        "events_by_type": {},
+        "time_by_level_s": {
+          "ok": 2.7,
+          "warn": 0.0,
+          "danger": 0.0
+        }
+      }
     },
     {
       "name": "repeated_glances",
@@ -14803,7 +14978,21 @@
           "yawn_count": 0.0,
           "offroad_window_s": 12.0
         }
-      ]
+      ],
+      "session": {
+        "duration_s": 19.9,
+        "average_score": 97.008375,
+        "min_score": 80.015846,
+        "event_count": 1,
+        "events_by_type": {
+          "Distracao acumulada": 1
+        },
+        "time_by_level_s": {
+          "ok": 19.9,
+          "warn": 0.0,
+          "danger": 0.0
+        }
+      }
     }
   ]
 }
