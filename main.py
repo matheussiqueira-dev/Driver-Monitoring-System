@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import json
 import sys
 import time
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
 import cv2
@@ -19,6 +22,7 @@ from dms.head_pose import HeadPoseEstimator
 from dms.mouth import MouthStateTracker
 from dms.overlay import FaceOverlayTracker
 from dms.pipeline import DMSPipeline, FrameResult, HandSource, PhoneDetector
+from dms.session import SessionStats, build_session_report
 from dms.utils import FPSCounter
 from dms.visualization import (
     draw_attention_bar,
@@ -57,6 +61,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--headless", action="store_true", help="Run without opening an OpenCV window")
     parser.add_argument(
         "--detect-every", type=int, default=None, help="Run YOLO/hand detection every N frames (default 3)"
+    )
+    parser.add_argument(
+        "--report", default=None, help="Write the session report (same JSON schema as the web export) to this path"
     )
     parser.add_argument("--max-frames", type=int, default=None, help="Stop after processing this number of frames")
     return parser
@@ -191,6 +198,19 @@ def draw_frame(frame: np.ndarray, result: FrameResult, config: DMSConfig, face_m
     draw_metrics(frame, result.eye_state, result.head_pose, result.attention, fps, result.mouth_state)
 
 
+def write_report(path: str, session: SessionStats, config: DMSConfig, is_file: bool) -> None:
+    report = build_session_report(
+        session,
+        config,
+        mode="python-video" if is_file else "python-camera",
+        generated_at=datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+    )
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    print(f"[DMS] Relatorio salvo em {target} ({session.summary().event_count} eventos)")
+
+
 def print_cameras() -> None:
     devices = list_camera_devices()
     if not devices:
@@ -210,7 +230,9 @@ def run(args: argparse.Namespace) -> int:
     source = resolve_source(args)
     cap = open_capture(source, config)
     pipeline = build_pipeline(config, args)
-    clock = FrameClock(cap, is_file=isinstance(source, str))
+    is_file = isinstance(source, str)
+    clock = FrameClock(cap, is_file=is_file)
+    session = SessionStats()
     fps_counter = FPSCounter()
     frames_processed = 0
 
@@ -222,7 +244,9 @@ def run(args: argparse.Namespace) -> int:
             if config.mirror:
                 frame = cv2.flip(frame, 1)
 
-            result = pipeline.process(frame, clock.next())
+            timestamp = clock.next()
+            result = pipeline.process(frame, timestamp)
+            session.add(result.attention, timestamp)
             draw_frame(frame, result, config, pipeline.face_source, fps_counter.update())
 
             frames_processed += 1
@@ -239,6 +263,8 @@ def run(args: argparse.Namespace) -> int:
         if not args.headless:
             cv2.destroyAllWindows()
         print(f"[DMS] Frames processados: {frames_processed}")
+        if args.report:
+            write_report(args.report, session, config, is_file)
     return 0
 
 

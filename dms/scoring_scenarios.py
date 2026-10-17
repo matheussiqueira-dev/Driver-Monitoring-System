@@ -7,13 +7,14 @@ stored in shared/scoring-scenarios.json.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from .attention import AttentionScorer
 from .config import DMSConfig
 from .ear import EyeStateTracker
 from .head_pose import HeadPose
 from .mouth import MouthStateTracker
+from .session import SessionStats
 
 Frame = Dict[str, Any]
 
@@ -79,7 +80,25 @@ SCENARIOS: Dict[str, List[Frame]] = {
 
 
 def replay_scenario(frames: List[Frame], config: Optional[DMSConfig] = None) -> List[Dict[str, Any]]:
+    return _replay(frames, config)[0]
+
+
+def replay_session(frames: List[Frame], config: Optional[DMSConfig] = None) -> Dict[str, Any]:
+    """Session aggregate after the scenario, rounded for cross-runtime comparison."""
+    summary = _replay(frames, config)[1].summary()
+    return {
+        "duration_s": round(summary.duration_s, 6),
+        "average_score": None if summary.average_score is None else round(summary.average_score, 6),
+        "min_score": None if summary.min_score is None else round(summary.min_score, 6),
+        "event_count": summary.event_count,
+        "events_by_type": summary.events_by_type,
+        "time_by_level_s": {level: round(value, 6) for level, value in summary.time_by_level_s.items()},
+    }
+
+
+def _replay(frames: List[Frame], config: Optional[DMSConfig]) -> Tuple[List[Dict[str, Any]], SessionStats]:
     config = config or DMSConfig()
+    session = SessionStats()
     eye_tracker = EyeStateTracker(config)
     scorer = AttentionScorer(config)
     mouth_tracker = MouthStateTracker(config)
@@ -100,6 +119,7 @@ def replay_scenario(frames: List[Frame], config: Optional[DMSConfig] = None) -> 
             timestamp=frame["t"],
             mouth_state=mouth_state,
         )
+        session.add(state, frame["t"])
         outputs.append(
             {
                 "score": round(state.score, 6),
@@ -116,4 +136,4 @@ def replay_scenario(frames: List[Frame], config: Optional[DMSConfig] = None) -> 
                 "offroad_window_s": round(state.offroad_window_s, 6),
             }
         )
-    return outputs
+    return outputs, session

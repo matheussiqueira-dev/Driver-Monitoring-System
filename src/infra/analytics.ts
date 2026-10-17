@@ -14,6 +14,7 @@ export type TelemetryEvent =
   | "phone_detector_error"
   | "attention_event"
   | "report_exported"
+  | "audio_alerts_toggled"
   | "web_vital"
   | "client_error"
   | "pwa_service_worker_ready"

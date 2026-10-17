@@ -12,7 +12,7 @@ Documento executivo da evolucao do Driver Monitoring System: de onde o projeto s
 | Python | Dependencias sem versao fixa, backend MediaPipe legado | Python 3.12 com versoes fixadas, apenas Tasks API, pipeline com Protocols, erros com exit codes |
 | Performance (engine, CPU 720p) | YOLO em todo frame: 16.8 FPS | YOLO/maos a cada 3 frames: 40.6 FPS (2.4x) |
 | Bundle web | Sem medicao registrada | Bundle inicial de 14 kB gzip; MediaPipe (46 kB gzip + WASM) carregado sob demanda ao ativar a camera |
-| Testes | unittest basico | 45 unittest + 45 Vitest + 6 Playwright E2E; CI com lint, typecheck, paridade, build e E2E |
+| Testes | unittest basico | 48 unittest + 50 Vitest + 9 Playwright E2E (inclui axe-core WCAG 2.2 A/AA); CI com lint, typecheck, paridade, build e E2E |
 | Seguranca e privacidade | Headers so na Vercel | Mesmos headers no `vite preview`; telemetria do MediaPipe bloqueada pela CSP; CSV protegido contra injecao de formula |
 | Produto | Dashboard de demonstracao | Dashboard com PERCLOS, bocejos e VATS; celular detectado tambem no navegador; exportacao JSON/CSV local |
 
@@ -71,29 +71,17 @@ pipeline.reconfigure(calibrated);
 
 `MonitoringPipeline.reconfigure` ja preserva timers e score, entao a calibracao entra sem reiniciar a sessao.
 
-### 3.4 Alerta sonoro opcional
+### 3.4 Alerta sonoro opcional (implementado)
 
-Web Audio, iniciado apenas apos gesto do usuario (politica de autoplay), tom em 200-8000 Hz conforme o ADDW, mais urgente para microssono do que para distracao (Euro NCAP).
+`src/domain/alertPolicy.ts` decide quando tocar: so no inicio de um evento, com cooldown de 2.5 s, e um alerta urgente pode interromper o cooldown de um aviso. `src/infra/audioAlert.ts` toca com Web Audio, desligado por padrao e ligado pelo toggle "Som" (gesto do usuario, exigido pela politica de autoplay). Sonolencia e microssono tocam 3 tons (1050/1400/1050 Hz); distracao e celular, um tom de 740 Hz. Fadiga, bocejo e celular suspeito ficam apenas visuais. Um E2E verifica o padrao urgente e a faixa de 200-8000 Hz.
 
-```ts
-// src/infra/audioAlert.ts (proposta)
-export class AudioAlert {
-  private context: AudioContext | null = null;
-  enable(): void { this.context ??= new AudioContext(); }
-  beep(level: "warn" | "danger"): void {
-    if (!this.context) return;
-    const osc = this.context.createOscillator();
-    osc.frequency.value = level === "danger" ? 1200 : 800;
-    osc.connect(this.context.destination);
-    osc.start();
-    osc.stop(this.context.currentTime + (level === "danger" ? 0.4 : 0.15));
-  }
-}
-```
+### 3.5 Relatorio no engine Python (implementado)
 
-### 3.5 Relatorio no engine Python
+`python main.py --source video.mp4 --report sessao.json` grava o mesmo schema da exportacao web (`schemaVersion: 1`, com `source.sensitivity: null` porque o engine nao tem o controle de sensibilidade). `dms/session.py` espelha `SessionStats` e o resumo de sessao faz parte dos cenarios de paridade.
 
-Gerar o mesmo schema do web (`schemaVersion: 1`) com `--report sessao.json`, reaproveitando uma versao Python de `SessionStats`. Com isso, uma sessao local e uma sessao no navegador podem ser comparadas na mesma ferramenta.
+### 3.6 Acessibilidade continua (implementado)
+
+`tests/e2e/a11y.spec.ts` roda axe-core (WCAG 2.2 A/AA) no build de producao e testa operacao por teclado. Proximo passo: auditar tambem o estado do modo Camera e o contraste do overlay sobre o video.
 
 ## 4. Blocos criticos refatorados, por dominio
 

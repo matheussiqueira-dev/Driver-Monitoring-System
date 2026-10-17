@@ -1,4 +1,5 @@
 import type { ScoringConfig } from "../domain/config";
+import { AlertPolicy, type AlertTone } from "../domain/alertPolicy";
 import { buildSessionReport, type SessionReport } from "../domain/report";
 import { applySensitivity } from "../domain/sensitivity";
 import { isPhoneNearFace, type Corners } from "../domain/spatial";
@@ -39,6 +40,8 @@ export interface MonitorDependencies {
   readonly camera: CameraSource;
   readonly media: { readonly demo: HTMLImageElement; readonly video: HTMLVideoElement };
   readonly track: (name: TelemetryEvent, payload?: EventPayload) => void;
+  /** Audible alert sink; decides itself whether sound is enabled. */
+  readonly alert: { play(tone: AlertTone): void };
   /** Called when the controller changes mode on its own (e.g. camera failure falls back to demo). */
   readonly onModeChange: (mode: SourceMode) => void;
 }
@@ -74,6 +77,7 @@ export class MonitorController {
   private readonly pipeline: MonitoringPipeline;
   private readonly layers: OverlayLayers = { mesh: true, pose: true, objects: true };
   private readonly rate = new RateMeter();
+  private readonly alertPolicy = new AlertPolicy();
   private viewport: Viewport = { width: 1, height: 1, dpr: 1 };
   private lastResult: PipelineResult | null = null;
   private phones: readonly PhoneOverlay[] = [];
@@ -214,6 +218,7 @@ export class MonitorController {
     this.pipeline.reset();
     this.deps.tracker.reset();
     this.deps.phoneDetector.reset();
+    this.alertPolicy.reset();
     this.phones = [];
     this.rate.reset();
     this.lastResult = null;
@@ -329,6 +334,10 @@ export class MonitorController {
     const result = this.pipeline.process(signals, timestampS);
     for (const event of result.startedEvents) {
       this.deps.track("attention_event", { event, mode: this.mode, sensitivity: this.sensitivity });
+    }
+    const tone = this.alertPolicy.next(result.startedEvents, performance.now());
+    if (tone) {
+      this.deps.alert.play(tone);
     }
     return result;
   }

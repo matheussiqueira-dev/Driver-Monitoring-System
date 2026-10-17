@@ -44,6 +44,16 @@ Pesquisa: protocolo Euro NCAP Safe Driving Driver Engagement v1.2 (2026), regula
 
 **Skills:** pesquisa regulatoria, modelagem de metricas temporais, design de cenarios deterministicos, UI de dashboard acessivel (contraste, foco visivel, `aria`), testes E2E.
 
+### Fase 5: curto prazo do roadmap
+
+| Entrega | Detalhe |
+|---|---|
+| `--report` no engine Python | `SessionStats` portado de `session.ts`; o resumo de sessao entrou nos cenarios de paridade, entao contagem de eventos, tendencia e tempo por nivel de risco sao verificados nos dois runtimes; o JSON tem o mesmo schema da exportacao web |
+| Alerta sonoro opcional | Web Audio, desligado por padrao, ligado por gesto do usuario; padrao urgente (3 tons) para sonolencia/microssono e tom simples para distracao/celular, 200-8000 Hz (ADDW); `AlertPolicy` pura com cooldown |
+| Acessibilidade | `@axe-core/playwright` com WCAG 2.2 A/AA no E2E; corrigidas 2 violacoes (barra de atencao virou `role="meter"`; link da marca com nome igual ao texto visivel, WCAG 2.5.3); teste de teclado |
+
+**Skills:** WCAG 2.2 e ARIA, Web Audio API, design de politicas testaveis, portabilidade de dominio entre linguagens com verificacao por dados gerados.
+
 ### Fase 4: documentacao
 
 `PROJECT_OVERVIEW.md`, este arquivo e `MASTER_EVOLUTION_PLAN.md`, alem da atualizacao do `README.md` (features, privacidade, testes, roadmap).
@@ -61,6 +71,7 @@ Pesquisa: protocolo Euro NCAP Safe Driving Driver Engagement v1.2 (2026), regula
 | EfficientDet-Lite0 float16 (modelo MediaPipe) | 1 | Licenca dos pesos nao informada na pagina do MediaPipe; verificar o model card antes de uso comercial | Celular no navegador |
 | Vite / Vitest | 8.3.4 / 5.0.5 | MIT | Build e testes unitarios |
 | Playwright | 1.64.1 | Apache-2.0 | E2E |
+| @axe-core/playwright | 4.14.0 | MPL-2.0 | Auditoria WCAG no E2E |
 | ESLint + typescript-eslint, Prettier, Ruff | 10.13 / 8.71.2, 3.9.10, 0.17.1 | MIT | Qualidade |
 
 Fixture de E2E: `tests/e2e/fixtures/driver-phone.jpg` (Wikimedia Commons, epSos.de, CC BY 2.0), creditada em `tests/e2e/fixtures/README.md`.
@@ -75,20 +86,15 @@ Observacao de licenca: o Ultralytics YOLO e AGPL-3.0. Como o projeto e open-sour
 | Olhar (gaze) | Landmarks de iris 468-477 do Face Landmarker | Apache-2.0 | Sem modelo extra |
 | Olhar com modelo dedicado | L2CS-Net ou yakhyo/gaze-estimation (ONNX) | MIT | Evitar WebGazer (GPL-3.0, calibracao por clique) |
 | Calibracao de limiares | YawDD e datasets publicos de sonolencia | Uso academico | Validar MAR e PERCLOS |
-| Alerta sonoro | Web Audio API | Nativo | Faixa 200-8000 Hz alinhada ao ADDW |
 | Confianca por landmark | Presence scores do tasks-vision 1.1 | Apache-2.0 | Descartar frames ruins antes do EAR |
 | Telemetria opcional | Supabase/Neon no plano gratuito ou SQLite local | Gratuito | Somente com consentimento explicito |
-| Acessibilidade automatizada | `@axe-core/playwright` | MPL-2.0 | Somar ao E2E existente |
 
 ## 4. Roadmap
 
 | Horizonte | Item | Esforco |
 |---|---|---|
 | Curto | Celular no navegador: rodar em Web Worker e avaliar EfficientDet-Lite2 com GPU | M |
-| Curto | Alerta sonoro opcional (Web Audio), com mute persistido | P |
-| Curto | `axe-core` no E2E | P |
 | Medio | Gaze por iris combinado com pose para "eyes off road" | M |
 | Medio | Calibracao por motorista (EAR/MAR de base nos primeiros 30 s) | M |
-| Medio | Relatorio de sessao tambem no engine Python (`--report out.json`), mesmo schema | P |
 | Longo | Inferencia em Web Worker com `OffscreenCanvas` | G |
 | Longo | Backend opcional de frotas com consentimento, ingestao do schema de relatorio | G |
