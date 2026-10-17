@@ -46,6 +46,34 @@ test("review trip raises drowsiness, yawn and fatigue events", async ({ page }) 
   expect(errors).toEqual([]);
 });
 
+test("audible alert plays the urgent pattern when drowsiness starts", async ({ page }) => {
+  test.slow();
+  await page.addInitScript(() => {
+    const counter = { oscillators: 0, frequencies: [] as number[] };
+    (window as unknown as { __audio: typeof counter }).__audio = counter;
+    const original = Object.getOwnPropertyDescriptor(BaseAudioContext.prototype, "createOscillator")?.value as (
+      this: BaseAudioContext,
+    ) => OscillatorNode;
+    BaseAudioContext.prototype.createOscillator = function (this: BaseAudioContext) {
+      const oscillator = original.call(this);
+      counter.oscillators += 1;
+      queueMicrotask(() => counter.frequencies.push(oscillator.frequency.value));
+      return oscillator;
+    };
+  });
+  await page.goto("/");
+  await page.getByLabel("Som").check();
+  await page.getByRole("button", { name: "Review" }).click();
+  await expect(page.locator("#eventList")).toContainText("Sonolencia", { timeout: 15_000 });
+
+  const audio = await page.evaluate(
+    () => (window as unknown as { __audio: { oscillators: number; frequencies: number[] } }).__audio,
+  );
+  expect(audio.oscillators).toBeGreaterThanOrEqual(3);
+  expect(audio.frequencies).toContain(1400);
+  expect(audio.frequencies.every((hz) => hz >= 200 && hz <= 8000)).toBe(true);
+});
+
 test("exports the session as JSON and CSV", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("#kpiScore")).not.toHaveText("--");
