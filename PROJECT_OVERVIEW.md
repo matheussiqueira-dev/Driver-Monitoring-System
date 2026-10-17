@@ -105,9 +105,9 @@ O motor Python e a referencia. `scripts/generate_scoring_scenarios.py` executa 1
 
 | Camada | Ferramenta | Quantidade |
 |---|---|---|
-| Regras, sessao, relatorio, config, proximidade do celular (web) | Vitest | 45 |
-| Engine, pipeline com fakes, CLI, overlay, janelas (Python) | unittest | 45 |
-| Fluxos reais no build de producao | Playwright (Chromium, camera sintetica e foto real como camera) | 6 |
+| Regras, sessao, relatorio, alertas, config, proximidade do celular (web) | Vitest | 50 |
+| Engine, pipeline com fakes, CLI, overlay, janelas, sessao e relatorio (Python) | unittest | 48 |
+| Fluxos reais no build de producao, som e acessibilidade (axe-core WCAG 2.2 A/AA, teclado) | Playwright | 9 |
 
 ## 5. Como as tecnologias novas foram integradas
 
