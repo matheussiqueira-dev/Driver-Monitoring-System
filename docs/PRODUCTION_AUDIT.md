@@ -1,5 +1,7 @@
 # Production Audit
 
+> Registro historico: descreve o projeto antes da refatoracao para TypeScript + Vite (`app.js`, `scripts/build-static.js`). A estrutura atual esta no README.
+
 Projeto: Driver Monitoring System  
 Responsavel: Matheus Siqueira  
 Portfolio: https://www.matheussiqueira.dev  

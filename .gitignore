@@ -8,3 +8,7 @@ node_modules/
 .vercel/
 dist/
 artifacts/
+
+# Playwright
+test-results/
+playwright-report/

@@ -8,7 +8,6 @@ import numpy as np
 from .config import DMSConfig
 from .utils import clamp
 
-
 Point2D = Tuple[float, float]
 BBox = Tuple[int, int, int, int]
 
@@ -177,7 +176,9 @@ class FaceOverlayTracker:
 
     def _compute_raw_transform(self, landmarks: np.ndarray, head_pose=None) -> OverlayTransform:
         center = compute_face_anchor(landmarks)
-        raw_scale, face_width_px, face_height_px = compute_face_scale(landmarks, self.config.overlay_reference_face_width)
+        raw_scale, face_width_px, face_height_px = compute_face_scale(
+            landmarks, self.config.overlay_reference_face_width
+        )
         scale = clamp(raw_scale, self.config.min_face_scale, self.config.max_face_scale)
         scale_ratio = scale / max(raw_scale, 1e-6)
         face_width_px *= scale_ratio

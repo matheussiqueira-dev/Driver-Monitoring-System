@@ -26,12 +26,16 @@ html {
 body {
   min-width: 320px;
   margin: 0;
-  background:
-    linear-gradient(180deg, rgba(7, 17, 15, 0.9), rgba(7, 17, 15, 1)),
-    #07110f;
+  background: linear-gradient(180deg, rgba(7, 17, 15, 0.9), rgba(7, 17, 15, 1)), #07110f;
   color: var(--text);
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   line-height: 1.5;
 }
 
@@ -485,7 +489,7 @@ h3 {
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -618,14 +622,48 @@ h3 {
   font-size: 1.05rem;
 }
 
+.export-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.ghost-button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.ghost-button:hover {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.ghost-button:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+.export-note {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 .ops-grid article,
 .product-grid article,
 .credit-card {
   border: 1px solid var(--line);
   border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgba(59, 216, 255, 0.08), transparent 44%),
-    rgba(255, 255, 255, 0.035);
+  background: linear-gradient(135deg, rgba(59, 216, 255, 0.08), transparent 44%), rgba(255, 255, 255, 0.035);
 }
 
 .ops-grid article {
@@ -719,9 +757,7 @@ h3 {
 
 .credit-card {
   min-height: 0;
-  background:
-    linear-gradient(135deg, rgba(86, 240, 141, 0.14), transparent 52%),
-    rgba(255, 255, 255, 0.04);
+  background: linear-gradient(135deg, rgba(86, 240, 141, 0.14), transparent 52%), rgba(255, 255, 255, 0.04);
 }
 
 .credit-card a {

@@ -7,6 +7,7 @@ from typing import Deque, Optional, Tuple
 import numpy as np
 
 from .config import DMSConfig
+from .rolling import RollingDutyCycle
 from .utils import point_distance
 
 LEFT_EYE_IDX = [362, 385, 387, 263, 373, 380]
@@ -31,6 +32,8 @@ class EyeState:
     drowsy: bool
     microsleep: bool
     closed_duration: float
+    # Share of the last perclos_window_s with eyes closed; None until enough coverage.
+    perclos: Optional[float] = None
 
 
 class EyeStateTracker:
@@ -39,6 +42,7 @@ class EyeStateTracker:
         self._blink_frames = 0
         self._closed_start: Optional[float] = None
         self._blink_times: Deque[float] = deque(maxlen=120)
+        self._closure = RollingDutyCycle(config.perclos_window_s, config.rolling_max_gap_s)
 
     def update(self, ear: Optional[float], timestamp: float) -> EyeState:
         if ear is None:
@@ -49,8 +53,10 @@ class EyeStateTracker:
                 drowsy=False,
                 microsleep=False,
                 closed_duration=0.0,
+                perclos=self._closure.ratio(self.config.perclos_min_coverage_s),
             )
 
+        self._closure.add(timestamp, ear < self.config.ear_threshold)
         if ear < self.config.ear_threshold:
             self._blink_frames += 1
             if self._closed_start is None:
@@ -76,6 +82,7 @@ class EyeStateTracker:
             drowsy=drowsy,
             microsleep=microsleep,
             closed_duration=closed_duration,
+            perclos=self._closure.ratio(self.config.perclos_min_coverage_s),
         )
 
     def _compute_blink_rate(self, timestamp: float) -> float:

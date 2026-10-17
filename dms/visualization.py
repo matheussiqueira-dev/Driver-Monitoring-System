@@ -8,6 +8,7 @@ import numpy as np
 from .attention import AttentionState
 from .ear import EyeState
 from .head_pose import HeadPose
+from .mouth import MouthState
 from .overlay import OverlayTransform
 
 
@@ -118,10 +119,11 @@ def draw_metrics(
     head_pose: Optional[HeadPose],
     attention_state: AttentionState,
     fps: float,
+    mouth_state: Optional[MouthState] = None,
 ) -> None:
     x, y = 20, 30
     color = score_color(attention_state.score)
-    panel_h = 150 if head_pose is not None else 118
+    panel_h = 172 if head_pose is not None else 140
     overlay = frame.copy()
     cv2.rectangle(overlay, (10, 10), (520, panel_h), (12, 18, 24), -1)
     cv2.addWeighted(overlay, 0.48, frame, 0.52, 0, frame)
@@ -138,7 +140,8 @@ def draw_metrics(
     if eye_state.ear is not None:
         cv2.putText(frame, f"EAR: {eye_state.ear:.3f}", (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (230, 230, 230), 1)
         y += 22
-        cv2.putText(frame, f"Blink rate: {eye_state.blink_rate:.1f}/min", (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (230, 230, 230), 1)
+        blink_text = f"Blink rate: {eye_state.blink_rate:.1f}/min"
+        cv2.putText(frame, blink_text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (230, 230, 230), 1)
         y += 22
     if head_pose is not None:
         cv2.putText(
@@ -151,6 +154,11 @@ def draw_metrics(
             1,
         )
         y += 22
+    perclos = "--" if eye_state.perclos is None else f"{eye_state.perclos * 100:.0f}%"
+    mar = "--" if mouth_state is None or mouth_state.mar is None else f"{mouth_state.mar:.2f}"
+    fatigue_text = f"PERCLOS: {perclos}  MAR: {mar}  VATS: {attention_state.offroad_window_s:.1f}s"
+    cv2.putText(frame, fatigue_text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (230, 230, 230), 1)
+    y += 22
     cv2.putText(frame, f"FPS: {fps:4.1f}", (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (230, 230, 230), 1)
     y += 22
     if attention_state.events:

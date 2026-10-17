@@ -37,13 +37,11 @@
     />
     <meta name="twitter:image" content="https://driver-monitoring-system-two.vercel.app/assets/og-image.png" />
     <title>Driver Monitoring System | Matheus Siqueira</title>
-    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="assets/icon-192.png" />
-    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/assets/icon-192.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link rel="preconnect" href="https://storage.googleapis.com" crossorigin />
-    <link rel="preload" href="assets/demo.gif" as="image" />
-    <link rel="stylesheet" href="styles.css" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -133,7 +131,7 @@
 
           <div class="monitor-stage" aria-label="Visualizacao ao vivo">
             <div class="video-shell">
-              <img src="assets/demo.gif" alt="Demonstracao do sistema de monitoramento com malha facial e boxes" />
+              <img src="/assets/demo.gif" decoding="async" alt="Demonstracao do sistema de monitoramento com malha facial e boxes" />
               <video id="cameraPreview" playsinline muted hidden></video>
               <canvas id="overlayCanvas" aria-hidden="true"></canvas>
 
@@ -143,20 +141,20 @@
               </div>
 
               <div class="metric-hud" aria-label="Metricas em tempo real">
-                <p>Score: <strong id="scoreValue">80.0</strong> <span id="scoreLabel">(Atento)</span></p>
-                <p>EAR: <strong id="earValue">0.286</strong></p>
-                <p>Yaw/Pitch/Roll: <strong id="poseValue">-2.1 / 4.7 / 0.8</strong></p>
-                <p>FPS: <strong id="fpsValue">29.8</strong></p>
+                <p>Score: <strong id="scoreValue">--</strong> <span id="scoreLabel"></span></p>
+                <p>EAR: <strong id="earValue">--</strong></p>
+                <p>Yaw/Pitch/Roll: <strong id="poseValue">--</strong></p>
+                <p>FPS: <strong id="fpsValue">--</strong></p>
               </div>
 
               <div class="attention-rail" aria-label="Barra de atencao">
                 <span id="attentionFill"></span>
               </div>
 
-              <pre class="tracking-debug" id="trackingDebug" aria-live="polite" hidden></pre>
+              <pre class="tracking-debug" id="trackingDebug" hidden></pre>
             </div>
 
-            <div class="alert-strip" id="alertStrip" role="status">Condicao estavel: motorista atento</div>
+            <div class="alert-strip" id="alertStrip" role="status">Iniciando monitoramento...</div>
           </div>
         </section>
 
@@ -169,23 +167,33 @@
           <div class="kpi-grid">
             <article class="kpi-card">
               <span>Score medio</span>
-              <strong id="kpiScore">83.4</strong>
-              <small>+6.2 vs. janela anterior</small>
+              <strong id="kpiScore">--</strong>
+              <small id="kpiScoreNote">aguardando amostras</small>
             </article>
             <article class="kpi-card">
-              <span>Eventos criticos</span>
-              <strong id="kpiEvents">03</strong>
-              <small>Celular e olhar fora</small>
+              <span>Eventos na sessao</span>
+              <strong id="kpiEvents">0</strong>
+              <small id="kpiEventsNote">nenhum evento</small>
             </article>
             <article class="kpi-card">
-              <span>EAR medio</span>
-              <strong id="kpiEar">0.287</strong>
-              <small>Dentro do limiar seguro</small>
+              <span>EAR atual</span>
+              <strong id="kpiEar">--</strong>
+              <small id="kpiEarNote">sem leitura</small>
             </article>
             <article class="kpi-card">
-              <span>FPS medio</span>
-              <strong id="kpiFps">29.8</strong>
-              <small>Pipeline em tempo real</small>
+              <span>Fadiga (PERCLOS 60s)</span>
+              <strong id="kpiPerclos">--</strong>
+              <small id="kpiPerclosNote">aguardando 10s de leitura</small>
+            </article>
+            <article class="kpi-card">
+              <span>Distracao acumulada (30s)</span>
+              <strong id="kpiVats">0.0s</strong>
+              <small id="kpiVatsNote">limite Euro NCAP: 10s em 30s</small>
+            </article>
+            <article class="kpi-card">
+              <span>FPS do pipeline</span>
+              <strong id="kpiFps">--</strong>
+              <small id="kpiFpsNote">frames processados por segundo</small>
             </article>
           </div>
 
@@ -193,9 +201,9 @@
             <article class="chart-panel">
               <div class="panel-title">
                 <h3>Tendencia do score</h3>
-                <span>ultimos 60s</span>
+                <span>ultimos ~17s</span>
               </div>
-              <div class="score-chart" id="scoreChart" aria-label="Grafico de tendencia"></div>
+              <div class="score-chart" id="scoreChart" role="img" aria-label="Grafico de tendencia do score"></div>
             </article>
 
             <article class="event-panel">
@@ -203,11 +211,7 @@
                 <h3>Eventos ativos</h3>
                 <span id="riskState">baixo risco</span>
               </div>
-              <ul class="event-list" id="eventList">
-                <li><span class="event-dot ok"></span>Face detectada com tracking estavel</li>
-                <li><span class="event-dot ok"></span>Pose dentro do limiar configurado</li>
-                <li><span class="event-dot warn"></span>Celular filtrado por proximidade facial</li>
-              </ul>
+              <ul class="event-list" id="eventList"></ul>
             </article>
 
             <article class="insight-panel">
@@ -215,9 +219,12 @@
                 <h3>Insights automaticos</h3>
                 <span>acao recomendada</span>
               </div>
-              <p id="insightText">
-                A sessao segue estavel. Mantenha o peso de head pose acima de EAR em cenarios com oculos escuros.
-              </p>
+              <p id="insightText">Coletando dados da sessao.</p>
+              <div class="export-row" role="group" aria-label="Exportar relatorio da sessao">
+                <button class="ghost-button" type="button" data-export="json">Exportar JSON</button>
+                <button class="ghost-button" type="button" data-export="csv">Exportar CSV</button>
+              </div>
+              <small class="export-note">O relatorio e gerado no navegador; nada e enviado.</small>
             </article>
           </div>
 
@@ -255,7 +262,7 @@
             <article>
               <span>02</span>
               <h3>Landmarks</h3>
-              <p>MediaPipe Face Mesh entrega 468 pontos com suavizacao temporal via EMA.</p>
+              <p>MediaPipe Face Landmarker entrega 478 pontos com suavizacao temporal via EMA.</p>
             </article>
             <article>
               <span>03</span>
@@ -323,6 +330,6 @@
       </footer>
     </div>
 
-    <script type="module" src="app.js"></script>
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -5,10 +5,12 @@ from typing import TYPE_CHECKING, List, Optional
 
 from .config import DMSConfig
 from .ear import EyeState
+from .rolling import RollingDutyCycle
 from .utils import ExponentialSmoother, clamp
 
 if TYPE_CHECKING:
     from .head_pose import HeadPose
+    from .mouth import MouthState
 
 
 @dataclass
@@ -17,6 +19,8 @@ class AttentionState:
     label: str
     events: List[str]
     raw_score: float
+    # Seconds of off-road gaze within the last vats_window_s (Euro NCAP VATS).
+    offroad_window_s: float = 0.0
 
 
 class AttentionScorer:
@@ -25,6 +29,7 @@ class AttentionScorer:
         self._smoother = ExponentialSmoother(config.score_smoothing, config.score_base)
         self._offroad_start: Optional[float] = None
         self._last_face_time: Optional[float] = None
+        self._offroad_window = RollingDutyCycle(config.vats_window_s, config.rolling_max_gap_s)
 
     def update(
         self,
@@ -34,6 +39,7 @@ class AttentionScorer:
         phone_near_face: bool,
         face_present: bool,
         timestamp: float,
+        mouth_state: Optional["MouthState"] = None,
     ) -> AttentionState:
         events: List[str] = []
         penalty = 0.0
@@ -41,9 +47,9 @@ class AttentionScorer:
         if face_present:
             self._last_face_time = timestamp
         else:
-            if self._last_face_time is None or (timestamp - self._last_face_time) > 1.0:
+            if self._last_face_time is None or (timestamp - self._last_face_time) > self.config.no_face_grace_s:
                 events.append("Sem rosto")
-                penalty += 25.0
+                penalty += self.config.penalty_no_face
 
         if eye_state.microsleep:
             penalty += self.config.penalty_microsleep
@@ -51,6 +57,14 @@ class AttentionScorer:
         elif eye_state.drowsy:
             penalty += self.config.penalty_drowsy
             events.append("Sonolencia")
+
+        if eye_state.perclos is not None and eye_state.perclos >= self.config.perclos_threshold:
+            penalty += self.config.penalty_fatigue
+            events.append("Fadiga")
+
+        if mouth_state is not None and mouth_state.yawning:
+            penalty += self.config.penalty_yawn
+            events.append("Bocejo")
 
         offroad = False
         if head_pose is not None:
@@ -65,6 +79,12 @@ class AttentionScorer:
         else:
             self._offroad_start = None
 
+        if head_pose is not None:
+            self._offroad_window.add(timestamp, offroad)
+        if self._offroad_window.active_s >= self.config.vats_offroad_limit_s:
+            penalty += self.config.penalty_vats
+            events.append("Distracao acumulada")
+
         if phone_near_face:
             penalty += self.config.penalty_phone
             events.append("Celular")
@@ -78,11 +98,17 @@ class AttentionScorer:
         score = self._smoother.update(raw_score)
         score = clamp(score, self.config.score_floor, self.config.score_ceiling)
 
-        if score >= 70:
+        if score >= self.config.attentive_min_score:
             label = "Atento"
-        elif score >= 40:
+        elif score >= self.config.alert_min_score:
             label = "Alerta"
         else:
             label = "Distraido"
 
-        return AttentionState(score=score, label=label, events=events, raw_score=raw_score)
+        return AttentionState(
+            score=score,
+            label=label,
+            events=events,
+            raw_score=raw_score,
+            offroad_window_s=self._offroad_window.active_s,
+        )

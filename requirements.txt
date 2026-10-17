@@ -1,7 +1,10 @@
 # Python 3.12 (versoes validadas com os testes e o main.py)
+# mediapipe depende de opencv-contrib-python e ultralytics de opencv-python;
+# os dois instalam o mesmo modulo cv2, entao ficam fixados na mesma versao.
 opencv-python==5.0.0.93
-mediapipe==1.1.0
+opencv-contrib-python==5.0.0.93
+mediapipe==1.1.1
 numpy==2.5.4
-ultralytics==8.4.175
+ultralytics==8.4.178
 torch==2.14.1
 torchvision==0.29.1

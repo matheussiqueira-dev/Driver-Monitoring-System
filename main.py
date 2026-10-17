@@ -1,25 +1,39 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import sys
 import time
+from typing import Any, Dict, Optional, Union
 
 import cv2
+import numpy as np
 
 from dms.attention import AttentionScorer
 from dms.camera import find_camera_index, list_camera_devices
 from dms.config import DMSConfig
-from dms.detection import HandDetector, YoloPhoneDetector
-from dms.ear import EyeStateTracker, LEFT_EYE_IDX, RIGHT_EYE_IDX, compute_ear
+from dms.ear import EyeStateTracker
+from dms.errors import DMSError, SourceUnavailableError
 from dms.face_mesh import FaceMeshDetector
 from dms.head_pose import HeadPoseEstimator
+from dms.mouth import MouthStateTracker
 from dms.overlay import FaceOverlayTracker
-from dms.spatial import is_phone_near_face
+from dms.pipeline import DMSPipeline, FrameResult, HandSource, PhoneDetector
 from dms.utils import FPSCounter
-from dms.visualization import draw_attention_bar, draw_detection_boxes, draw_metrics, draw_phone_boxes, draw_tracked_face_overlay
+from dms.visualization import (
+    draw_attention_bar,
+    draw_detection_boxes,
+    draw_metrics,
+    draw_phone_boxes,
+    draw_tracked_face_overlay,
+)
+
+Source = Union[int, str]
+WINDOW_TITLE = "Driver Monitoring System"
+EXIT_INTERRUPTED = 130
 
 
-def parse_source(value: str):
+def parse_source(value: str) -> Source:
     if value.isdigit():
         return int(value)
     return value
@@ -41,159 +55,203 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--height", type=int, default=None, help="Capture height")
     parser.add_argument("--no-mirror", action="store_true", help="Disable mirroring the camera feed")
     parser.add_argument("--headless", action="store_true", help="Run without opening an OpenCV window")
+    parser.add_argument(
+        "--detect-every", type=int, default=None, help="Run YOLO/hand detection every N frames (default 3)"
+    )
     parser.add_argument("--max-frames", type=int, default=None, help="Stop after processing this number of frames")
     return parser
 
 
-def main() -> None:
-    args = build_arg_parser().parse_args()
-    config = DMSConfig()
+def build_config(args: argparse.Namespace) -> DMSConfig:
+    """Apply CLI overrides through dataclasses.replace so validation runs on the final values."""
+    overrides: Dict[str, Any] = {}
     if args.width:
-        config.frame_width = args.width
+        overrides["frame_width"] = args.width
     if args.height:
-        config.frame_height = args.height
+        overrides["frame_height"] = args.height
     if args.weights:
-        config.yolo_weights = args.weights
+        overrides["yolo_weights"] = args.weights
     if args.device:
-        config.yolo_device = args.device
+        overrides["yolo_device"] = args.device
+    if args.detect_every is not None:
+        overrides["detector_interval_frames"] = args.detect_every
     if args.no_mirror:
-        config.mirror = False
+        overrides["mirror"] = False
     if args.no_mesh:
-        config.show_mesh = False
+        overrides["show_mesh"] = False
     if args.no_face_overlay:
-        config.show_face_overlay = False
+        overrides["show_face_overlay"] = False
     if args.no_debug_overlay:
-        config.show_debug = False
+        overrides["show_debug"] = False
+    return dataclasses.replace(DMSConfig(), **overrides)
 
-    if args.list_cameras:
-        devices = list_camera_devices()
-        if devices:
-            print("Cameras disponiveis:")
-            for idx, name in enumerate(devices):
-                print(f"{idx}: {name}")
-        else:
-            print("Nao foi possivel listar cameras. Instale `pygrabber` no Windows para usar --list-cameras.")
-        return
 
+def resolve_source(args: argparse.Namespace) -> Source:
     source = parse_source(str(args.source))
     if isinstance(source, int) and args.camera_name:
         index = find_camera_index(args.camera_name)
         if index is None:
-            print(f"Camera '{args.camera_name}' nao encontrada. Use --list-cameras para descobrir o indice.")
-            return
-        source = index
-        print(f"Usando camera {index}: {args.camera_name}")
+            raise SourceUnavailableError(
+                f"Camera '{args.camera_name}' nao encontrada. Use --list-cameras para descobrir o indice."
+            )
+        print(f"[DMS] Usando camera {index}: {args.camera_name}")
+        return index
+    return source
 
+
+def open_capture(source: Source, config: DMSConfig) -> cv2.VideoCapture:
     if isinstance(source, int) and sys.platform.startswith("win"):
         cap = cv2.VideoCapture(source, cv2.CAP_DSHOW)
     else:
         cap = cv2.VideoCapture(source)
     if not cap.isOpened():
-        print(f"[DMS] Nao foi possivel abrir a fonte de video: {source}")
-        sys.exit(1)
+        raise SourceUnavailableError(f"Nao foi possivel abrir a fonte de video: {source}")
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.frame_width)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.frame_height)
+    return cap
 
-    face_mesh = FaceMeshDetector(config)
-    eye_tracker = EyeStateTracker(config)
-    head_pose_estimator = HeadPoseEstimator(config)
-    overlay_tracker = FaceOverlayTracker(config)
-    scorer = AttentionScorer(config)
-    fps_counter = FPSCounter()
 
-    yolo_detector = None
+def build_pipeline(config: DMSConfig, args: argparse.Namespace) -> DMSPipeline:
+    """Composition root: optional detectors degrade gracefully when unavailable."""
+    phone_detector: Optional[PhoneDetector] = None
     if not args.no_yolo:
         try:
-            yolo_detector = YoloPhoneDetector(config)
-        except Exception as exc:
+            from dms.detection import YoloPhoneDetector
+
+            phone_detector = YoloPhoneDetector(config)
+        except Exception as exc:  # torch/ultralytics may be missing or blocked by the OS
             print(f"[DMS] YOLO desativado: {exc}")
 
-    hand_detector = None
+    hand_source: Optional[HandSource] = None
     if not args.no_hands:
         try:
-            hand_detector = HandDetector(config)
+            from dms.detection import HandDetector
+
+            hand_source = HandDetector(config)
         except Exception as exc:
             print(f"[DMS] Detector de maos desativado: {exc}")
 
+    return DMSPipeline(
+        face_source=FaceMeshDetector(config),
+        eye_tracker=EyeStateTracker(config),
+        head_pose_source=HeadPoseEstimator(config),
+        overlay_source=FaceOverlayTracker(config),
+        scorer=AttentionScorer(config),
+        phone_detector=phone_detector,
+        hand_source=hand_source,
+        mouth_tracker=MouthStateTracker(config),
+        detector_interval=config.detector_interval_frames,
+    )
+
+
+class FrameClock:
+    """Monotonic timestamps: video time for files, wall clock for cameras.
+
+    MediaPipe VIDEO mode requires strictly increasing timestamps, and using the
+    video's own time keeps duration-based rules (drowsiness, off-road) correct
+    when a file is processed faster or slower than real time. Some containers do
+    not report CAP_PROP_POS_MSEC; then the frame index and the declared FPS are
+    used instead.
+    """
+
+    FALLBACK_FPS = 30.0
+    MIN_STEP_S = 0.001
+
+    def __init__(self, cap: cv2.VideoCapture, is_file: bool) -> None:
+        self.cap = cap
+        self.is_file = is_file
+        self.start = time.monotonic()
+        self.last = -1.0
+        self.frames = 0
+        fps = cap.get(cv2.CAP_PROP_FPS) if is_file else 0.0
+        self.fps = fps if fps and fps > 0 else self.FALLBACK_FPS
+
+    def next(self) -> float:
+        if self.is_file:
+            position_s = self.cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
+            timestamp = position_s if position_s > self.last else self.frames / self.fps
+        else:
+            timestamp = time.monotonic() - self.start
+        self.frames += 1
+        timestamp = max(timestamp, self.last + self.MIN_STEP_S)
+        self.last = timestamp
+        return timestamp
+
+
+def draw_frame(frame: np.ndarray, result: FrameResult, config: DMSConfig, face_mesh: Any, fps: float) -> None:
+    if config.show_mesh:
+        face_mesh.draw(frame)
+    if config.show_face_overlay:
+        draw_tracked_face_overlay(frame, result.overlay, config.show_debug)
+    if result.detections is not None:
+        draw_detection_boxes(frame, result.detections.all)
+    if result.hand_boxes:
+        draw_phone_boxes(frame, result.hand_boxes, "hand")
+    draw_attention_bar(frame, result.attention.score)
+    draw_metrics(frame, result.eye_state, result.head_pose, result.attention, fps, result.mouth_state)
+
+
+def print_cameras() -> None:
+    devices = list_camera_devices()
+    if not devices:
+        print("Nao foi possivel listar cameras. Instale `pygrabber` no Windows para usar --list-cameras.")
+        return
+    print("Cameras disponiveis:")
+    for idx, name in enumerate(devices):
+        print(f"{idx}: {name}")
+
+
+def run(args: argparse.Namespace) -> int:
+    config = build_config(args)
+    if args.list_cameras:
+        print_cameras()
+        return 0
+
+    source = resolve_source(args)
+    cap = open_capture(source, config)
+    pipeline = build_pipeline(config, args)
+    clock = FrameClock(cap, is_file=isinstance(source, str))
+    fps_counter = FPSCounter()
     frames_processed = 0
-    while True:
-        ok, frame = cap.read()
-        if not ok:
-            break
 
-        if config.mirror:
-            frame = cv2.flip(frame, 1)
+    try:
+        while True:
+            ok, frame = cap.read()
+            if not ok:
+                break
+            if config.mirror:
+                frame = cv2.flip(frame, 1)
 
-        timestamp = time.time()
-        timestamp_ms = int(timestamp * 1000)
-        face_result = face_mesh.process(frame, timestamp_ms)
+            result = pipeline.process(frame, clock.next())
+            draw_frame(frame, result, config, pipeline.face_source, fps_counter.update())
 
-        ear = None
-        head_pose = None
-        if face_result.face_present:
-            left_ear = compute_ear(face_result.landmarks, LEFT_EYE_IDX)
-            right_ear = compute_ear(face_result.landmarks, RIGHT_EYE_IDX)
-            ear = (left_ear + right_ear) / 2.0
-            head_pose = head_pose_estimator.estimate(face_result.landmarks, frame.shape[:2])
-        overlay_transform = overlay_tracker.update(face_result.landmarks, frame.shape, head_pose)
+            frames_processed += 1
+            if args.max_frames is not None and frames_processed >= args.max_frames:
+                break
+            if args.headless:
+                continue
 
-        eye_state = eye_tracker.update(ear, timestamp)
+            cv2.imshow(WINDOW_TITLE, frame)
+            if cv2.waitKey(1) & 0xFF in (27, ord("q")):
+                break
+    finally:
+        cap.release()
+        if not args.headless:
+            cv2.destroyAllWindows()
+        print(f"[DMS] Frames processados: {frames_processed}")
+    return 0
 
-        detections = None
-        phone_present = False
-        phone_near_face = False
-        if yolo_detector is not None:
-            detections = yolo_detector.detect(frame)
-            if detections.phones:
-                phone_present = True
-                pitch = head_pose.pitch if head_pose else None
-                phone_near_face = any(
-                    is_phone_near_face(det.bbox, face_result.bbox, frame.shape, pitch)
-                    for det in detections.phones
-                )
 
-        hand_boxes = []
-        if hand_detector is not None:
-            hand_boxes = hand_detector.detect(frame, timestamp_ms)
-
-        attention_state = scorer.update(
-            eye_state=eye_state,
-            head_pose=head_pose,
-            phone_present=phone_present,
-            phone_near_face=phone_near_face,
-            face_present=face_result.face_present,
-            timestamp=timestamp,
-        )
-
-        if config.show_mesh:
-            face_mesh.draw(frame)
-        if config.show_face_overlay:
-            draw_tracked_face_overlay(frame, overlay_transform, config.show_debug)
-        if detections is not None:
-            draw_detection_boxes(frame, detections.all)
-        if hand_boxes:
-            draw_phone_boxes(frame, hand_boxes, "hand")
-
-        fps = fps_counter.update()
-        draw_attention_bar(frame, attention_state.score)
-        draw_metrics(frame, eye_state, head_pose, attention_state, fps)
-
-        frames_processed += 1
-        if args.max_frames is not None and frames_processed >= args.max_frames:
-            break
-        if args.headless:
-            continue
-
-        cv2.imshow("Driver Monitoring System", frame)
-        key = cv2.waitKey(1) & 0xFF
-        if key in (27, ord("q")):
-            break
-
-    cap.release()
-    if not args.headless:
-        cv2.destroyAllWindows()
-    print(f"[DMS] Frames processados: {frames_processed}")
+def main(argv: Optional[list[str]] = None) -> int:
+    args = build_arg_parser().parse_args(argv)
+    try:
+        return run(args)
+    except DMSError as exc:
+        print(f"[DMS] {exc}", file=sys.stderr)
+        return exc.exit_code
+    except KeyboardInterrupt:
+        return EXIT_INTERRUPTED
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
