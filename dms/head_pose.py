@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, Tuple
 
 import cv2
 import numpy as np
 
 from .config import DMSConfig
+
+# diag(1, -1, -1): model axes (x right, y up, z toward the camera) to camera axes (y down, z forward).
+MODEL_TO_CAMERA_AXES = np.diag([1.0, -1.0, -1.0])
 
 
 @dataclass
@@ -17,11 +20,16 @@ class HeadPose:
     is treated as image-space visual roll and blended with the eye-axis roll;
     positive overlay roll is clockwise on screen because image y grows downward.
     Existing phone heuristics treat positive pitch as looking down.
+
+    ``rotation`` is the head-to-camera rotation (camera axes: x right, y down,
+    z forward) when the pose came from solvePnP; dms/gaze.py uses it to rotate
+    the eye-in-head direction into a camera-space gaze vector.
     """
 
     yaw: float
     pitch: float
     roll: float
+    rotation: Optional[np.ndarray] = field(default=None, repr=False, compare=False)
 
 
 class HeadPoseEstimator:
@@ -69,9 +77,11 @@ class HeadPoseEstimator:
             return None
 
         rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
-        angles = self._rotation_matrix_to_euler_angles(rotation_matrix)
-        pitch, yaw, roll = angles
-        return HeadPose(yaw=yaw, pitch=pitch, roll=roll)
+        # The 3D model is y-up / z-toward-camera while the camera is y-down / z-forward:
+        # without undoing that axis flip a frontal face decomposes to pitch = +-180 deg.
+        head_rotation = rotation_matrix @ MODEL_TO_CAMERA_AXES
+        pitch, yaw, roll = self._rotation_matrix_to_euler_angles(head_rotation)
+        return HeadPose(yaw=float(yaw), pitch=float(pitch), roll=float(roll), rotation=head_rotation)
 
     @staticmethod
     def _rotation_matrix_to_euler_angles(rotation_matrix: np.ndarray) -> Tuple[float, float, float]:

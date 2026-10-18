@@ -16,6 +16,7 @@ from .attention import AttentionScorer, AttentionState
 from .detection import YoloDetections
 from .ear import LEFT_EYE_IDX, RIGHT_EYE_IDX, EyeState, EyeStateTracker, compute_ear
 from .face_mesh import FaceResult
+from .gaze import EyeGazeCalibration, GazeAngles, combine_gaze, estimate_eye_gaze
 from .head_pose import HeadPose
 from .mouth import MouthState, MouthStateTracker, compute_mar
 from .overlay import OverlayTransform
@@ -58,6 +59,8 @@ class FrameResult:
     phone_present: bool = False
     phone_near_face: bool = False
     mouth_state: Optional[MouthState] = None
+    # Head pose + iris eye rotation used by the off-road rules; None without a face.
+    gaze: Optional[GazeAngles] = None
 
 
 class DMSPipeline:
@@ -88,6 +91,7 @@ class DMSPipeline:
         self._frame_index = 0
         self._last_detections: Optional[YoloDetections] = None
         self._last_hand_boxes: List[BBox] = []
+        self._eye_calibration = EyeGazeCalibration()
 
     def _run_detectors(self, frame: np.ndarray, timestamp_ms: int) -> Tuple[Optional[YoloDetections], List[BBox]]:
         """Phone/hand detectors run every ``detector_interval`` frames; in between the last result is reused."""
@@ -106,10 +110,16 @@ class DMSPipeline:
         ear: Optional[float] = None
         mar: Optional[float] = None
         head_pose: Optional[HeadPose] = None
+        gaze: Optional[GazeAngles] = None
         if face.face_present and face.landmarks is not None:
             ear = (compute_ear(face.landmarks, LEFT_EYE_IDX) + compute_ear(face.landmarks, RIGHT_EYE_IDX)) / 2.0
             mar = compute_mar(face.landmarks)
             head_pose = self.head_pose_source.estimate(face.landmarks, frame.shape[:2])
+            threshold = self.scorer.config.ear_threshold
+            eye_gaze = self._eye_calibration.apply(
+                estimate_eye_gaze(face.landmarks), head_pose, ear >= threshold, timestamp_s
+            )
+            gaze = combine_gaze(head_pose, eye_gaze, ear, threshold)
         overlay = self.overlay_source.update(face.landmarks, frame.shape, head_pose)
         eye_state = self.eye_tracker.update(ear, timestamp_s)
         mouth_state = self.mouth_tracker.update(mar, timestamp_s) if self.mouth_tracker is not None else None
@@ -133,6 +143,7 @@ class DMSPipeline:
             face_present=face.face_present,
             timestamp=timestamp_s,
             mouth_state=mouth_state,
+            gaze=gaze,
         )
         return FrameResult(
             face=face,
@@ -145,4 +156,5 @@ class DMSPipeline:
             phone_present=phone_present,
             phone_near_face=phone_near_face,
             mouth_state=mouth_state,
+            gaze=gaze,
         )

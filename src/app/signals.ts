@@ -1,4 +1,5 @@
 import type { HeadPose } from "../domain/attention";
+import type { EyeGaze } from "../domain/gaze";
 
 /** What the vision layer observed in one frame; input to the scoring pipeline. */
 export interface FrameSignals {
@@ -7,6 +8,8 @@ export interface FrameSignals {
   /** Mouth Aspect Ratio; null when the mouth is not tracked. */
   readonly mar: number | null;
   readonly headPose: HeadPose | null;
+  /** Eye-in-head rotation from the iris; null when unavailable (gaze = head pose). */
+  readonly eyeGaze: EyeGaze | null;
   readonly phonePresent: boolean;
   readonly phoneNearFace: boolean;
 }
@@ -73,16 +76,34 @@ export function demoSignals(profile: DemoProfile, timeS: number): FrameSignals {
   const blinking = cycleTime % BLINK_PERIOD_S < BLINK_DURATION_S;
   const openEar = OPEN_EAR + Math.sin(cycleTime / 0.72) * 0.012;
   const mar = RESTING_MAR + Math.abs(Math.sin(cycleTime / 0.6)) * 0.03;
+  // Small fixational eye movements on top of the head pose (well inside the road thresholds).
+  const eyeGaze = { yaw: Math.sin(cycleTime / 0.41) * 2.5, pitch: Math.cos(cycleTime / 0.57) * 1.5 };
 
   switch (kind) {
     case "faceLost":
-      return { facePresent: false, ear: null, mar: null, headPose: null, phonePresent: false, phoneNearFace: false };
+      return {
+        facePresent: false,
+        ear: null,
+        mar: null,
+        headPose: null,
+        eyeGaze: null,
+        phonePresent: false,
+        phoneNearFace: false,
+      };
     case "eyesClosed": {
       // Microsleep: eyes shut, then the head starts to drop.
       const segmentStart = 4;
       const nod = Math.min(1, Math.max(0, (cycleTime - segmentStart) / 1.2));
       const headPose = { ...drift, pitch: drift.pitch + nod * 20 };
-      return { facePresent: true, ear: CLOSED_EAR, mar, headPose, phonePresent: false, phoneNearFace: false };
+      return {
+        facePresent: true,
+        ear: CLOSED_EAR,
+        mar,
+        headPose,
+        eyeGaze: null,
+        phonePresent: false,
+        phoneNearFace: false,
+      };
     }
     case "yawn": {
       // Mouth opens wide for ~2 s with the head tilting back slightly, then closes.
@@ -93,6 +114,7 @@ export function demoSignals(profile: DemoProfile, timeS: number): FrameSignals {
         ear: openEar - opening * 0.06,
         mar: RESTING_MAR + (YAWN_MAR - RESTING_MAR) * Math.min(1, opening * 1.6),
         headPose: { ...drift, pitch: drift.pitch - opening * 6 },
+        eyeGaze,
         phonePresent: false,
         phoneNearFace: false,
       };
@@ -103,6 +125,7 @@ export function demoSignals(profile: DemoProfile, timeS: number): FrameSignals {
         ear: openEar,
         mar,
         headPose: { ...drift, yaw: 27 + drift.yaw * 0.3 },
+        eyeGaze,
         phonePresent: false,
         phoneNearFace: false,
       };
@@ -112,17 +135,27 @@ export function demoSignals(profile: DemoProfile, timeS: number): FrameSignals {
         ear: openEar,
         mar,
         headPose: { ...drift, pitch: 22 },
+        eyeGaze,
         phonePresent: true,
         phoneNearFace: true,
       };
     case "phoneFar":
-      return { facePresent: true, ear: openEar, mar, headPose: drift, phonePresent: true, phoneNearFace: false };
+      return {
+        facePresent: true,
+        ear: openEar,
+        mar,
+        headPose: drift,
+        eyeGaze,
+        phonePresent: true,
+        phoneNearFace: false,
+      };
     case "phoneNear":
       return {
         facePresent: true,
         ear: openEar,
         mar,
         headPose: { ...drift, pitch: 12 },
+        eyeGaze,
         phonePresent: true,
         phoneNearFace: true,
       };
@@ -132,6 +165,7 @@ export function demoSignals(profile: DemoProfile, timeS: number): FrameSignals {
         ear: blinking ? CLOSED_EAR : openEar,
         mar,
         headPose: drift,
+        eyeGaze,
         phonePresent: false,
         phoneNearFace: false,
       };

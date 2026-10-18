@@ -1,8 +1,10 @@
 import type { HeadPose } from "../domain/attention";
 import { computeMeanEar } from "../domain/eyeState";
 import { computeMar } from "../domain/mouthState";
+import type { EyeGaze } from "../domain/gaze";
 import { boundingBox, clamp, type Box, type Point } from "../domain/geometry";
 import { estimateHeadPose, faceAnchor } from "./headPose";
+import { estimateEyeGaze } from "./irisGaze";
 import { LandmarkSmoother } from "./landmarkFilter";
 
 const HOLD_FRAMES = 4;
@@ -19,6 +21,8 @@ export interface FaceTrack {
   readonly ear: number | null;
   readonly mar: number | null;
   readonly pose: HeadPose;
+  /** Eye-in-head rotation from the iris landmarks; null without refined iris points. */
+  readonly eyeGaze: EyeGaze | null;
   readonly opacity: number;
   readonly status: TrackStatus;
   readonly trackingFps: number;
@@ -26,8 +30,8 @@ export interface FaceTrack {
 
 /**
  * Turns per-frame landmark results into a stable face track: smooths points
- * (time-aware, see LandmarkSmoother), derives EAR/MAR/pose, and holds then
- * fades the overlay when the face is lost.
+ * (time-aware, see LandmarkSmoother), derives EAR/MAR/pose/iris gaze, and
+ * holds then fades the overlay when the face is lost.
  */
 export class FaceTracker {
   private readonly smoother = new LandmarkSmoother();
@@ -77,6 +81,7 @@ export class FaceTracker {
       ear: computeMeanEar(landmarks),
       mar: computeMar(landmarks),
       pose,
+      eyeGaze: estimateEyeGaze(landmarks),
       opacity: 1,
       status: "tracking",
       trackingFps,

@@ -13,6 +13,8 @@ interface ScenarioFrame {
   mar: number | null;
   yaw: number | null;
   pitch: number | null;
+  gaze_yaw: number | null;
+  gaze_pitch: number | null;
   phone_present: boolean;
   phone_near_face: boolean;
 }
@@ -30,6 +32,7 @@ interface ScenarioExpected {
   yawning: boolean;
   yawn_count: number;
   offroad_window_s: number;
+  gaze_deviation: number | null;
 }
 
 interface ScenarioSession {
@@ -60,7 +63,7 @@ const scenarios = (scenariosDocument as { scenarios: Scenario[] }).scenarios;
 
 describe("scoring parity with the Python reference engine", () => {
   it("covers every committed scenario", () => {
-    expect(scenarios.length).toBeGreaterThanOrEqual(14);
+    expect(scenarios.length).toBeGreaterThanOrEqual(16);
   });
 
   it.each(scenarios.map((scenario) => [scenario.name, scenario] as const))("%s", (_name, scenario) => {
@@ -80,10 +83,15 @@ describe("scoring parity with the Python reference engine", () => {
         frame.face_present && frame.yaw !== null && frame.pitch !== null
           ? { yaw: frame.yaw, pitch: frame.pitch, roll: 0 }
           : null;
+      const gaze =
+        frame.face_present && frame.gaze_yaw !== null && frame.gaze_pitch !== null
+          ? { yaw: frame.gaze_yaw, pitch: frame.gaze_pitch }
+          : null;
       const state = scorer.update({
         eyeState,
         mouthState,
         headPose,
+        gaze,
         phonePresent: frame.phone_present,
         phoneNearFace: frame.phone_near_face,
         facePresent: frame.face_present,
@@ -108,6 +116,7 @@ describe("scoring parity with the Python reference engine", () => {
       expect(mouthState.yawning, context).toBe(expected.yawning);
       expect(mouthState.yawnCount, context).toBe(expected.yawn_count);
       expect(state.offroadWindowS, context).toBeCloseTo(expected.offroad_window_s, 5);
+      expectCloseOrNull(state.gazeDeviation, expected.gaze_deviation, context);
     });
 
     const summary = session.summary();

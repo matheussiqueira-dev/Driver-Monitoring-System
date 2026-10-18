@@ -1,4 +1,5 @@
 import type { ScoringConfig } from "../domain/config";
+import type { GazeDirection } from "../domain/gaze";
 import { AlertPolicy, type AlertTone } from "../domain/alertPolicy";
 import { buildSessionReport, type SessionReport } from "../domain/report";
 import { applySensitivity } from "../domain/sensitivity";
@@ -24,6 +25,7 @@ const NO_FACE: FrameSignals = {
   ear: null,
   mar: null,
   headPose: null,
+  eyeGaze: null,
   phonePresent: false,
   phoneNearFace: false,
 };
@@ -295,7 +297,7 @@ export class MonitorController {
     this.lastResult = result;
     this.deps.renderer.drawTrack(track, result.attention, this.deps.landmarker.connections, this.layers, this.phones);
     const status = this.deps.landmarker.status === "ready" ? null : `Face Mesh: ${this.deps.landmarker.status}`;
-    this.render(result, nowMs, status, this.debugLines(track));
+    this.render(result, nowMs, status, this.debugLines(track, result.gaze));
   }
 
   /** Maps detector boxes to canvas pixels (same space as the face track) and applies the proximity rule. */
@@ -325,6 +327,7 @@ export class MonitorController {
       ear: track.ear,
       mar: track.mar,
       headPose: track.pose,
+      eyeGaze: track.eyeGaze,
       phonePresent,
       phoneNearFace: phones.some((phone) => phone.near),
     };
@@ -363,7 +366,7 @@ export class MonitorController {
     );
   }
 
-  private debugLines(track: FaceTrack | null): readonly string[] {
+  private debugLines(track: FaceTrack | null, gaze: GazeDirection | null): readonly string[] {
     const { video } = this.deps.media;
     const { width, height, dpr } = this.deps.mapper.size;
     return [
@@ -376,6 +379,8 @@ export class MonitorController {
       `mirrored: ${String(this.deps.mapper.isMirrored)}`,
       `trackingFps: ${(track?.trackingFps ?? 0).toFixed(1)}`,
       `track: ${track?.status ?? "none"}`,
+      `irisGaze: ${track?.eyeGaze ? `${track.eyeGaze.yaw.toFixed(1)} / ${track.eyeGaze.pitch.toFixed(1)}` : "--"}`,
+      `gaze: ${gaze ? `${gaze.yaw.toFixed(1)} / ${gaze.pitch.toFixed(1)}` : "--"}`,
     ];
   }
 }
