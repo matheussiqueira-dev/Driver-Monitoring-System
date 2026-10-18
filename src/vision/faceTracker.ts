@@ -1,12 +1,10 @@
 import type { HeadPose } from "../domain/attention";
 import { computeMeanEar } from "../domain/eyeState";
 import { computeMar } from "../domain/mouthState";
-import { boundingBox, clamp, distance, type Box, type Point } from "../domain/geometry";
+import { boundingBox, clamp, type Box, type Point } from "../domain/geometry";
 import { estimateHeadPose, faceAnchor } from "./headPose";
+import { LandmarkSmoother } from "./landmarkFilter";
 
-const DEFAULT_ALPHA = 0.58;
-const FAST_ALPHA = 0.88;
-const FAST_REANCHOR_DISTANCE_PX = 72;
 const HOLD_FRAMES = 4;
 const FADE_FRAMES = 10;
 const FPS_WINDOW_MS = 1000;
@@ -26,47 +24,10 @@ export interface FaceTrack {
   readonly trackingFps: number;
 }
 
-/** EMA over landmark positions; reacts faster when the face jumps. */
-export class LandmarkSmoother {
-  private previous: Point[] | null = null;
-
-  constructor(private readonly alpha = DEFAULT_ALPHA) {}
-
-  reset(): void {
-    this.previous = null;
-  }
-
-  update(points: readonly Point[]): readonly Point[] {
-    const previous = this.previous;
-    if (!previous || previous.length !== points.length) {
-      this.previous = points.map((point) => ({ ...point }));
-      return this.previous;
-    }
-
-    let maxMovement = 0;
-    points.forEach((point, index) => {
-      const prior = previous[index];
-      if (prior) {
-        maxMovement = Math.max(maxMovement, distance(point, prior));
-      }
-    });
-
-    const alpha = maxMovement > FAST_REANCHOR_DISTANCE_PX ? FAST_ALPHA : this.alpha;
-    this.previous = points.map((point, index) => {
-      const prior = previous[index] ?? point;
-      return {
-        x: alpha * point.x + (1 - alpha) * prior.x,
-        y: alpha * point.y + (1 - alpha) * prior.y,
-        z: alpha * (point.z ?? 0) + (1 - alpha) * (prior.z ?? 0),
-      };
-    });
-    return this.previous;
-  }
-}
-
 /**
- * Turns per-frame landmark results into a stable face track: smooths points,
- * derives EAR/pose, and holds then fades the overlay when the face is lost.
+ * Turns per-frame landmark results into a stable face track: smooths points
+ * (time-aware, see LandmarkSmoother), derives EAR/MAR/pose, and holds then
+ * fades the overlay when the face is lost.
  */
 export class FaceTracker {
   private readonly smoother = new LandmarkSmoother();
@@ -91,7 +52,7 @@ export class FaceTracker {
       return this.markMissing();
     }
 
-    const landmarks = this.smoother.update(canvasLandmarks);
+    const landmarks = this.smoother.update(canvasLandmarks, timestampMs);
     const box = boundingBox(landmarks);
     const anchor = faceAnchor(landmarks);
     const pose = estimateHeadPose(landmarks);

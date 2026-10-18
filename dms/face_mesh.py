@@ -10,6 +10,7 @@ import numpy as np
 from mediapipe import tasks
 
 from .config import DMSConfig
+from .landmark_filter import AdaptiveLandmarkFilter
 from .mediapipe_utils import ensure_model_asset
 
 
@@ -21,7 +22,7 @@ class FaceResult:
 
 
 class FaceMeshDetector:
-    """MediaPipe Tasks Face Landmarker in VIDEO mode, with EMA-smoothed landmarks in pixels.
+    """MediaPipe Tasks Face Landmarker in VIDEO mode; landmarks in pixels, time-aware EMA smoothed.
 
     mediapipe 1.x removed the legacy ``mp.solutions`` API, so Tasks is the only backend.
     """
@@ -42,6 +43,11 @@ class FaceMeshDetector:
             output_facial_transformation_matrixes=False,
         )
         self._landmarker = tasks.vision.FaceLandmarker.create_from_options(options)
+        self._filter = AdaptiveLandmarkFilter(
+            min_cutoff_hz=config.landmark_min_cutoff_hz,
+            speed_beta=config.landmark_speed_beta,
+            derivative_cutoff_hz=config.landmark_derivative_cutoff_hz,
+        )
         self._smoothed: Optional[np.ndarray] = None
         self._last_landmarks: Optional[np.ndarray] = None
 
@@ -52,6 +58,7 @@ class FaceMeshDetector:
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
         results = self._landmarker.detect_for_video(mp_image, timestamp_ms)
         if not results.face_landmarks:
+            self._filter.reset()
             self._smoothed = None
             self._last_landmarks = None
             return FaceResult(landmarks=None, bbox=None, face_present=False)
@@ -63,11 +70,7 @@ class FaceMeshDetector:
         )
         self._last_landmarks = coords.copy()
 
-        if self._smoothed is None:
-            self._smoothed = coords
-        else:
-            alpha = self.config.landmark_smoothing_alpha
-            self._smoothed = self._smoothed + alpha * (coords - self._smoothed)
+        self._smoothed = self._filter.update(coords, timestamp_ms / 1000.0)
 
         x_min, y_min = np.min(self._smoothed[:, :2], axis=0).astype(int)
         x_max, y_max = np.max(self._smoothed[:, :2], axis=0).astype(int)
