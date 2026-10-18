@@ -183,5 +183,16 @@ class EyeGazeCalibrationTests(unittest.TestCase):
         self.assertAlmostEqual(calibration.baseline.pitch, -10.0)
 
 
+class PaletteTests(unittest.TestCase):
+    def test_neon_to_acid_passes_through_violet(self) -> None:
+        from dms.visualization import ACID, NEON, mix_color
+
+        blue, green, red = mix_color(NEON, ACID, 0.5)
+
+        self.assertGreater(blue, 200)
+        self.assertLess(green, 60)
+        self.assertEqual(mix_color(NEON, ACID, 1.0), ACID)
+
+
 if __name__ == "__main__":
     unittest.main()

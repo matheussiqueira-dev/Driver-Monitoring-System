@@ -15,6 +15,20 @@ export interface Connection {
   readonly end: number;
 }
 
+/** Mesh connections grouped by how the overlay draws them. */
+export interface FaceConnections {
+  /** Full tessellation: drawn as a faint graphite mesh. */
+  readonly mesh: readonly Connection[];
+  /** Eye contours (EAR zone). */
+  readonly eyes: readonly Connection[];
+  /** Lip contours (MAR zone). */
+  readonly lips: readonly Connection[];
+  /** Iris rings (gaze). */
+  readonly irises: readonly Connection[];
+}
+
+const NO_CONNECTIONS: FaceConnections = { mesh: [], eyes: [], lips: [], irises: [] };
+
 export interface LandmarkDetection {
   /** Normalized (0..1) landmarks of the first face, or null when no face. */
   readonly landmarks: readonly Point[] | null;
@@ -29,7 +43,7 @@ export class FaceLandmarkerService {
   private loading: Promise<void> | null = null;
   private lastInferenceMs = -Infinity;
   private statusValue: ModelStatus = "idle";
-  private connectionList: readonly Connection[] = [];
+  private connectionGroups: FaceConnections = NO_CONNECTIONS;
   private delegateValue: "GPU" | "CPU" | null = null;
   frameId = 0;
 
@@ -41,8 +55,8 @@ export class FaceLandmarkerService {
     return this.delegateValue;
   }
 
-  get connections(): readonly Connection[] {
-    return this.connectionList;
+  get connections(): FaceConnections {
+    return this.connectionGroups;
   }
 
   ensureReady(): Promise<void> {
@@ -80,13 +94,12 @@ export class FaceLandmarkerService {
       this.landmarker = await create("CPU");
       this.delegateValue = "CPU";
     }
-    this.connectionList = [
-      ...FaceLandmarkerClass.FACE_LANDMARKS_TESSELATION,
-      ...FaceLandmarkerClass.FACE_LANDMARKS_CONTOURS,
-      ...FaceLandmarkerClass.FACE_LANDMARKS_LEFT_EYE,
-      ...FaceLandmarkerClass.FACE_LANDMARKS_RIGHT_EYE,
-      ...FaceLandmarkerClass.FACE_LANDMARKS_LIPS,
-    ];
+    this.connectionGroups = {
+      mesh: FaceLandmarkerClass.FACE_LANDMARKS_TESSELATION,
+      eyes: [...FaceLandmarkerClass.FACE_LANDMARKS_LEFT_EYE, ...FaceLandmarkerClass.FACE_LANDMARKS_RIGHT_EYE],
+      lips: FaceLandmarkerClass.FACE_LANDMARKS_LIPS,
+      irises: [...FaceLandmarkerClass.FACE_LANDMARKS_LEFT_IRIS, ...FaceLandmarkerClass.FACE_LANDMARKS_RIGHT_IRIS],
+    };
     this.statusValue = "ready";
   }
 

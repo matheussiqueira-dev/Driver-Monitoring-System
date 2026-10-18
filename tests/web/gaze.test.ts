@@ -3,6 +3,7 @@ import { combineGaze, EyeGazeCalibration, gazeDeviation } from "../../src/domain
 import type { Point } from "../../src/domain/geometry";
 import { EYEBALL_RADIUS_RATIO, IRIS, estimateEyeGaze, eyeRotation } from "../../src/vision/irisGaze";
 import { emaAlpha, LandmarkSmoother } from "../../src/vision/landmarkFilter";
+import { mixRgb, PALETTE } from "../../src/vision/overlayRenderer";
 
 const CORNERS = [
   [33, 133],
@@ -144,5 +145,15 @@ describe("EyeGazeCalibration", () => {
       calibration.apply({ yaw: 0, pitch: 0 }, ahead, false, t);
     }
     expect(calibration.apply({ yaw: 0, pitch: 18 }, ahead, true, 20)?.pitch).toBeCloseTo(28, 6);
+  });
+});
+
+describe("overlay palette", () => {
+  it("interpolates neon to acid through violet, not gray", () => {
+    const [r, g, b] = mixRgb(PALETTE.neon, PALETTE.acid, 0.5);
+    expect(b).toBeGreaterThan(200);
+    expect(g).toBeLessThan(60);
+    expect(r).toBeLessThan(120);
+    expect(mixRgb(PALETTE.neon, PALETTE.acid, 1).map(Math.round)).toEqual([...PALETTE.acid]);
   });
 });

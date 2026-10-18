@@ -77,11 +77,5 @@ class FaceMeshDetector:
         bbox = (int(x_min), int(y_min), int(x_max), int(y_max))
         return FaceResult(landmarks=self._smoothed.copy(), bbox=bbox, face_present=True)
 
-    def draw(self, frame: np.ndarray) -> None:
-        if self._last_landmarks is None:
-            return
-        for x, y, _ in self._last_landmarks:
-            cv2.circle(frame, (int(x), int(y)), 1, (80, 255, 80), -1)
-
     def close(self) -> None:
         self._landmarker.close()

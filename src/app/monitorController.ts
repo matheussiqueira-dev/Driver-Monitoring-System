@@ -278,7 +278,13 @@ export class MonitorController {
       this.lastResult = this.process(demoSignals(profile, this.simTimeS), this.simTimeS);
       this.rate.tick(nowMs);
     }
-    this.deps.renderer.drawDemo(this.lastResult.signals, this.lastResult.attention, this.layers);
+    this.deps.renderer.drawDemo(
+      this.lastResult.signals,
+      this.lastResult.attention,
+      this.lastResult.gaze,
+      this.layers,
+      nowMs,
+    );
     const status = this.mode === "camera" ? CAMERA_LOADING_MESSAGE : this.activeNotice(nowMs);
     this.render(this.lastResult, nowMs, status, null);
   }
@@ -295,7 +301,15 @@ export class MonitorController {
     }
     const result = this.lastResult ?? this.process(NO_FACE, nowMs / 1000);
     this.lastResult = result;
-    this.deps.renderer.drawTrack(track, result.attention, this.deps.landmarker.connections, this.layers, this.phones);
+    this.deps.renderer.drawTrack(
+      track,
+      result.attention,
+      result.gaze,
+      this.deps.landmarker.connections,
+      this.layers,
+      this.phones,
+      nowMs,
+    );
     const status = this.deps.landmarker.status === "ready" ? null : `Face Mesh: ${this.deps.landmarker.status}`;
     this.render(result, nowMs, status, this.debugLines(track, result.gaze));
   }

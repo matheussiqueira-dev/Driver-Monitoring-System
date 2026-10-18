@@ -25,8 +25,12 @@ from dms.pipeline import DMSPipeline, FrameResult, HandSource, PhoneDetector
 from dms.session import SessionStats, build_session_report
 from dms.utils import FPSCounter
 from dms.visualization import (
+    NOSE_TIP,
+    accent_color,
     draw_attention_bar,
     draw_detection_boxes,
+    draw_face_mesh,
+    draw_gaze_arrow,
     draw_metrics,
     draw_phone_boxes,
     draw_tracked_face_overlay,
@@ -185,17 +189,23 @@ class FrameClock:
         return timestamp
 
 
-def draw_frame(frame: np.ndarray, result: FrameResult, config: DMSConfig, face_mesh: Any, fps: float) -> None:
+def draw_frame(frame: np.ndarray, result: FrameResult, config: DMSConfig, fps: float) -> None:
+    accent = accent_color(result.attention.score, config.attentive_min_score, config.alert_min_score)
+    landmarks = result.face.landmarks if result.face.face_present else None
     if config.show_mesh:
-        face_mesh.draw(frame)
+        draw_face_mesh(frame, landmarks, accent)
     if config.show_face_overlay:
-        draw_tracked_face_overlay(frame, result.overlay, config.show_debug)
+        draw_tracked_face_overlay(frame, result.overlay, config.show_debug, accent)
+    if result.gaze is not None and landmarks is not None and result.face.bbox is not None:
+        nose = (float(landmarks[NOSE_TIP][0]), float(landmarks[NOSE_TIP][1]))
+        face_width = float(result.face.bbox[2] - result.face.bbox[0])
+        draw_gaze_arrow(frame, nose, result.gaze, face_width, result.attention.gaze_deviation, accent)
     if result.detections is not None:
         draw_detection_boxes(frame, result.detections.all)
     if result.hand_boxes:
         draw_phone_boxes(frame, result.hand_boxes, "hand")
     draw_attention_bar(frame, result.attention.score)
-    draw_metrics(frame, result.eye_state, result.head_pose, result.attention, fps, result.mouth_state)
+    draw_metrics(frame, result.eye_state, result.head_pose, result.attention, fps, result.mouth_state, result.gaze)
 
 
 def write_report(path: str, session: SessionStats, config: DMSConfig, is_file: bool) -> None:
@@ -247,7 +257,7 @@ def run(args: argparse.Namespace) -> int:
             timestamp = clock.next()
             result = pipeline.process(frame, timestamp)
             session.add(result.attention, timestamp)
-            draw_frame(frame, result, config, pipeline.face_source, fps_counter.update())
+            draw_frame(frame, result, config, fps_counter.update())
 
             frames_processed += 1
             if args.max_frames is not None and frames_processed >= args.max_frames:
