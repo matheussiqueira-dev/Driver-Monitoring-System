@@ -40,6 +40,10 @@ class DMSConfig:
     tracking_confidence: float = 0.5
     landmark_smoothing: float = 0.7
     landmark_smoothing_alpha: float = 0.45
+    # Face Mesh landmark filter (dms/landmark_filter.py): dt-aware, speed-adaptive EMA.
+    landmark_min_cutoff_hz: float = 1.7
+    landmark_speed_beta: float = 4.0
+    landmark_derivative_cutoff_hz: float = 1.0
     face_landmarker_model: str = "models/face_landmarker.task"
     face_landmarker_model_url: str = (
         "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
@@ -138,6 +142,8 @@ class DMSConfig:
             problems.append("janelas e tempos de PERCLOS/VATS/bocejo devem ser positivos")
         if self.blink_min_frames > self.blink_max_frames:
             problems.append("blink_min_frames nao pode exceder blink_max_frames")
+        if self.landmark_min_cutoff_hz <= 0 or self.landmark_derivative_cutoff_hz <= 0 or self.landmark_speed_beta < 0:
+            problems.append("cortes do filtro de landmarks devem ser positivos e o beta nao negativo")
         if self.detector_interval_frames < 1:
             problems.append("detector_interval_frames deve ser >= 1")
         if not 0.0 < self.yolo_conf <= 1.0:

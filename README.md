@@ -34,7 +34,9 @@ Essa separacao preserva o deploy simples na Vercel e evita que `main.py` seja in
 - Fadiga por PERCLOS (porcentagem de tempo com olhos fechados em 60s).
 - Bocejo por Mouth Aspect Ratio (MAR) sustentado.
 - Distracao acumulada no estilo Euro NCAP 2026 (VATS: 10s fora da via dentro de 30s).
-- Exportacao da sessao em JSON e CSV, gerada no navegador.
+- Exportacao da sessao em JSON e CSV, gerada no navegador; o engine Python grava o mesmo JSON com `--report`.
+- Alerta sonoro opcional (Web Audio): padrao urgente para sonolencia/microssono, tom simples para distracao e celular.
+- Acessibilidade auditada com axe-core (WCAG 2.2 A/AA) a cada build no CI.
 - Dashboard com KPIs, tendencia, eventos e insights acionaveis.
 - PWA instalavel com manifest, service worker, icones e cache offline do app shell.
 - SEO tecnico com Open Graph, Twitter Cards, canonical, sitemap, robots e structured data.
@@ -159,6 +161,12 @@ Execucao sem janela (headless), util para validar o pipeline com um video sem ca
 python main.py --source path/para/video.mp4 --headless --max-frames 120
 ```
 
+Relatorio da sessao no mesmo formato JSON da exportacao web:
+
+```bash
+python main.py --source path/para/video.mp4 --headless --report relatorios/sessao.json
+```
+
 `--max-frames` encerra apos o numero de frames indicado e pode ser usado com ou sem `--headless`. Com camera e `--headless` sem `--max-frames`, o app roda ate ser interrompido (Ctrl+C).
 
 ## Variaveis de Ambiente
@@ -266,7 +274,6 @@ Detalhado em [`MASTER_EVOLUTION_PLAN.md`](MASTER_EVOLUTION_PLAN.md). Proximos pa
 
 - Estimativa de olhar com landmarks de iris (468-477) para "eyes off road" alem da pose da cabeca.
 - Calibracao por motorista (EAR/MAR base nos primeiros segundos).
-- Alerta sonoro opcional via Web Audio.
 - Calibrar os limiares de PERCLOS e MAR com dataset publico (ex.: YawDD).
 
 ## Aviso

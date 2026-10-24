@@ -16,7 +16,8 @@ export interface SessionReportInput {
 export interface SessionReport {
   readonly schemaVersion: typeof REPORT_SCHEMA_VERSION;
   readonly generatedAt: string;
-  readonly source: { readonly mode: string; readonly sensitivity: number };
+  /** sensitivity is null in reports from the Python engine, which has no slider. */
+  readonly source: { readonly mode: string; readonly sensitivity: number | null };
   readonly thresholds: {
     readonly earThreshold: number;
     readonly perclosThreshold: number;

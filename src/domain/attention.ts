@@ -1,5 +1,6 @@
 import type { ScoringConfig } from "./config";
 import type { EyeState } from "./eyeState";
+import { gazeDeviation, type GazeDirection } from "./gaze";
 import { clamp } from "./geometry";
 import type { MouthState } from "./mouthState";
 import { RollingDutyCycle } from "./rolling";
@@ -29,6 +30,11 @@ export interface AttentionInput {
   /** Null when the mouth is not tracked (no yawn penalty). */
   readonly mouthState: MouthState | null;
   readonly headPose: HeadPose | null;
+  /**
+   * Head pose + iris eye rotation. When given, the off-road rules use it
+   * instead of the head pose alone; null/absent falls back to the head pose.
+   */
+  readonly gaze?: GazeDirection | null;
   readonly phonePresent: boolean;
   readonly phoneNearFace: boolean;
   readonly facePresent: boolean;
@@ -44,6 +50,8 @@ export interface AttentionState {
   readonly events: readonly AttentionEvent[];
   /** Seconds of off-road gaze within the last vatsWindowS (Euro NCAP VATS). */
   readonly offroadWindowS: number;
+  /** Gaze deviation over the off-road thresholds (1 = at the limit); null without a pose. */
+  readonly gazeDeviation: number | null;
 }
 
 export function labelForScore(score: number, config: ScoringConfig): AttentionLabel {
@@ -119,7 +127,7 @@ export class AttentionScorer {
       events.push("Bocejo");
     }
 
-    const pose = input.headPose;
+    const pose: GazeDirection | null = input.gaze ?? input.headPose;
     const offroad =
       pose !== null && (Math.abs(pose.yaw) > config.yawThreshold || Math.abs(pose.pitch) > config.pitchThreshold);
     if (offroad) {
@@ -155,6 +163,14 @@ export class AttentionScorer {
     const score = clamp(this.smoothed, config.scoreFloor, config.scoreCeiling);
     const label = labelForScore(score, config);
 
-    return { score, rawScore, label, level: levelForLabel(label), events, offroadWindowS: this.offroadWindow.activeS };
+    return {
+      score,
+      rawScore,
+      label,
+      level: levelForLabel(label),
+      events,
+      offroadWindowS: this.offroadWindow.activeS,
+      gazeDeviation: gazeDeviation(pose, config.yawThreshold, config.pitchThreshold),
+    };
   }
 }

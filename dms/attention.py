@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, List, Optional
 
 from .config import DMSConfig
 from .ear import EyeState
+from .gaze import GazeAngles, gaze_deviation
 from .rolling import RollingDutyCycle
 from .utils import ExponentialSmoother, clamp
 
@@ -21,6 +22,8 @@ class AttentionState:
     raw_score: float
     # Seconds of off-road gaze within the last vats_window_s (Euro NCAP VATS).
     offroad_window_s: float = 0.0
+    # Gaze deviation over the off-road thresholds (1 = at the limit); None without a pose.
+    gaze_deviation: Optional[float] = None
 
 
 class AttentionScorer:
@@ -40,7 +43,9 @@ class AttentionScorer:
         face_present: bool,
         timestamp: float,
         mouth_state: Optional["MouthState"] = None,
+        gaze: Optional[GazeAngles] = None,
     ) -> AttentionState:
+        """``gaze`` (head pose + iris) drives the off-road rules when given; otherwise the head pose does."""
         events: List[str] = []
         penalty = 0.0
 
@@ -66,9 +71,12 @@ class AttentionScorer:
             penalty += self.config.penalty_yawn
             events.append("Bocejo")
 
+        direction: Optional[GazeAngles] = gaze
+        if direction is None and head_pose is not None:
+            direction = GazeAngles(yaw=float(head_pose.yaw), pitch=float(head_pose.pitch))
         offroad = False
-        if head_pose is not None:
-            if abs(head_pose.yaw) > self.config.yaw_threshold or abs(head_pose.pitch) > self.config.pitch_threshold:
+        if direction is not None:
+            if abs(direction.yaw) > self.config.yaw_threshold or abs(direction.pitch) > self.config.pitch_threshold:
                 offroad = True
         if offroad:
             if self._offroad_start is None:
@@ -79,7 +87,7 @@ class AttentionScorer:
         else:
             self._offroad_start = None
 
-        if head_pose is not None:
+        if direction is not None:
             self._offroad_window.add(timestamp, offroad)
         if self._offroad_window.active_s >= self.config.vats_offroad_limit_s:
             penalty += self.config.penalty_vats
@@ -111,4 +119,5 @@ class AttentionScorer:
             events=events,
             raw_score=raw_score,
             offroad_window_s=self._offroad_window.active_s,
+            gaze_deviation=gaze_deviation(direction, self.config.yaw_threshold, self.config.pitch_threshold),
         )

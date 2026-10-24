@@ -3,6 +3,7 @@ import { MonitorController } from "./app/monitorController";
 import { DEFAULT_SCORING_CONFIG } from "./domain/config";
 import { initAnalytics, trackEvent } from "./infra/analytics";
 import { eventsToCsv } from "./domain/report";
+import { AudioAlert } from "./infra/audioAlert";
 import { CameraSource } from "./infra/camera";
 import { downloadText } from "./infra/download";
 import { registerServiceWorker } from "./infra/pwa";
@@ -50,6 +51,24 @@ function bootstrap(): void {
     }
   };
 
+  const audio = new AudioAlert();
+  const audioToggle = requireElement("#audioToggle", HTMLInputElement);
+  audioToggle.checked = AudioAlert.savedPreference();
+  audioToggle.addEventListener("change", () => {
+    audio.setEnabled(audioToggle.checked);
+    trackEvent("audio_alerts_toggled", { enabled: audioToggle.checked });
+  });
+  if (audioToggle.checked) {
+    // Browsers only start audio after a user gesture: re-arm a saved preference on the first one.
+    const arm = (): void => {
+      if (audioToggle.checked && !audio.enabled) {
+        audio.setEnabled(true);
+      }
+    };
+    window.addEventListener("pointerdown", arm, { once: true });
+    window.addEventListener("keydown", arm, { once: true });
+  }
+
   const mapper = new CoordinateMapper();
   const view = new MonitorView();
   const controller = new MonitorController(
@@ -64,6 +83,7 @@ function bootstrap(): void {
       camera: new CameraSource(video),
       media: { demo, video },
       track: trackEvent,
+      alert: audio,
       onModeChange: markActive,
     },
     Number(sensitivity.value),

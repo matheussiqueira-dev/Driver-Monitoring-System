@@ -7,13 +7,15 @@ stored in shared/scoring-scenarios.json.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from .attention import AttentionScorer
 from .config import DMSConfig
 from .ear import EyeStateTracker
+from .gaze import GazeAngles
 from .head_pose import HeadPose
 from .mouth import MouthStateTracker
+from .session import SessionStats
 
 Frame = Dict[str, Any]
 
@@ -28,6 +30,8 @@ def _frames(
     mar: float = 0.05,
     yaw: float = 0.0,
     pitch: float = 0.0,
+    gaze_yaw: Optional[float] = None,
+    gaze_pitch: Optional[float] = None,
     face: bool = True,
     phone: bool = False,
     phone_near_face: bool = False,
@@ -42,6 +46,9 @@ def _frames(
                 "mar": mar if face else None,
                 "yaw": yaw if face else None,
                 "pitch": pitch if face else None,
+                # Head pose + iris; None means no iris gaze (the scorer uses the head pose).
+                "gaze_yaw": gaze_yaw if face else None,
+                "gaze_pitch": gaze_pitch if face else None,
                 "phone_present": phone,
                 "phone_near_face": phone_near_face,
             }
@@ -75,11 +82,33 @@ SCENARIOS: Dict[str, List[Frame]] = {
     "talking_is_not_yawning": _sequence(*[part for _ in range(4) for part in (_frames(4, mar=0.7), _frames(3))]),
     # 1.2 s glances (below offroad_time_s) with 0.8 s back on the road: Euro NCAP VATS.
     "repeated_glances": _sequence(*[part for _ in range(10) for part in (_frames(12, yaw=26.0), _frames(8))]),
+    # Iris gaze: eyes leave the road while the head stays forward (head pose alone misses it).
+    "eyes_off_road_head_forward": _sequence(_frames(3), _frames(25, gaze_yaw=28.0, gaze_pitch=2.0)),
+    # Head turned but the eyes counter-rotate back to the road (e.g. checking a mirror with the eyes only).
+    "head_turned_eyes_on_road": _sequence(_frames(3), _frames(25, yaw=26.0, gaze_yaw=6.0, gaze_pitch=1.0)),
 }
 
 
 def replay_scenario(frames: List[Frame], config: Optional[DMSConfig] = None) -> List[Dict[str, Any]]:
+    return _replay(frames, config)[0]
+
+
+def replay_session(frames: List[Frame], config: Optional[DMSConfig] = None) -> Dict[str, Any]:
+    """Session aggregate after the scenario, rounded for cross-runtime comparison."""
+    summary = _replay(frames, config)[1].summary()
+    return {
+        "duration_s": round(summary.duration_s, 6),
+        "average_score": None if summary.average_score is None else round(summary.average_score, 6),
+        "min_score": None if summary.min_score is None else round(summary.min_score, 6),
+        "event_count": summary.event_count,
+        "events_by_type": summary.events_by_type,
+        "time_by_level_s": {level: round(value, 6) for level, value in summary.time_by_level_s.items()},
+    }
+
+
+def _replay(frames: List[Frame], config: Optional[DMSConfig]) -> Tuple[List[Dict[str, Any]], SessionStats]:
     config = config or DMSConfig()
+    session = SessionStats()
     eye_tracker = EyeStateTracker(config)
     scorer = AttentionScorer(config)
     mouth_tracker = MouthStateTracker(config)
@@ -89,8 +118,11 @@ def replay_scenario(frames: List[Frame], config: Optional[DMSConfig] = None) -> 
         eye_state = eye_tracker.update(frame["ear"], frame["t"])
         mouth_state = mouth_tracker.update(frame["mar"], frame["t"])
         head_pose = None
+        gaze = None
         if frame["face_present"]:
             head_pose = HeadPose(yaw=frame["yaw"], pitch=frame["pitch"], roll=0.0)
+            if frame["gaze_yaw"] is not None and frame["gaze_pitch"] is not None:
+                gaze = GazeAngles(yaw=frame["gaze_yaw"], pitch=frame["gaze_pitch"])
         state = scorer.update(
             eye_state=eye_state,
             head_pose=head_pose,
@@ -99,7 +131,9 @@ def replay_scenario(frames: List[Frame], config: Optional[DMSConfig] = None) -> 
             face_present=frame["face_present"],
             timestamp=frame["t"],
             mouth_state=mouth_state,
+            gaze=gaze,
         )
+        session.add(state, frame["t"])
         outputs.append(
             {
                 "score": round(state.score, 6),
@@ -114,6 +148,7 @@ def replay_scenario(frames: List[Frame], config: Optional[DMSConfig] = None) -> 
                 "yawning": mouth_state.yawning,
                 "yawn_count": mouth_state.yawn_count,
                 "offroad_window_s": round(state.offroad_window_s, 6),
+                "gaze_deviation": None if state.gaze_deviation is None else round(state.gaze_deviation, 6),
             }
         )
-    return outputs
+    return outputs, session

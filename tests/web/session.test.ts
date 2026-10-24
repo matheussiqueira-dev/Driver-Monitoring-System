@@ -7,7 +7,7 @@ import { SessionStats } from "../../src/domain/session";
 function state(score: number, events: AttentionEvent[] = []): AttentionState {
   const level = score >= 70 ? "ok" : score >= 40 ? "warn" : "danger";
   const label = level === "ok" ? "Atento" : level === "warn" ? "Alerta" : "Distraido";
-  return { score, rawScore: score, label, level, events, offroadWindowS: 0 };
+  return { score, rawScore: score, label, level, events, offroadWindowS: 0, gazeDeviation: 0 };
 }
 
 describe("SessionStats", () => {

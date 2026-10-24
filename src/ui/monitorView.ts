@@ -59,6 +59,7 @@ export class MonitorView {
     poseValue: requireElement("#poseValue", HTMLElement),
     fpsValue: requireElement("#fpsValue", HTMLElement),
     attentionFill: requireElement("#attentionFill", HTMLElement),
+    attentionRail: requireElement("#attentionRail", HTMLElement),
     alertStrip: requireElement("#alertStrip", HTMLElement),
     scoreChart: requireElement("#scoreChart", HTMLElement),
     eventList: requireElement("#eventList", HTMLUListElement),
@@ -80,6 +81,7 @@ export class MonitorView {
   private lastDashboardMs = -Infinity;
   private lastAlertText = "";
   private lastEventsKey = "";
+  private lastMeterValue = -1;
 
   render(frame: FrameView, nowMs: number): void {
     const { attention, eyeState, signals } = frame.result;
@@ -95,6 +97,13 @@ export class MonitorView {
     setText(this.el.fpsValue, frame.fps.toFixed(1));
     this.el.attentionFill.style.height = `${Math.max(8, attention.score)}%`;
     this.el.attentionFill.style.background = RISK_COLORS[attention.level];
+    const meterValue = Math.round(attention.score);
+    // Assistive tech reads the meter on demand; only touch the DOM when the rounded value changes.
+    if (meterValue !== this.lastMeterValue) {
+      this.lastMeterValue = meterValue;
+      this.el.attentionRail.setAttribute("aria-valuenow", String(meterValue));
+      this.el.attentionRail.setAttribute("aria-valuetext", `${meterValue} de 100, ${attention.label}`);
+    }
     this.renderAlert(frame);
 
     const showDebug = frame.debugLines !== null;

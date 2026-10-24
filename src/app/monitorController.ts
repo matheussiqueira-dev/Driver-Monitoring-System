@@ -1,4 +1,6 @@
 import type { ScoringConfig } from "../domain/config";
+import type { GazeDirection } from "../domain/gaze";
+import { AlertPolicy, type AlertTone } from "../domain/alertPolicy";
 import { buildSessionReport, type SessionReport } from "../domain/report";
 import { applySensitivity } from "../domain/sensitivity";
 import { isPhoneNearFace, type Corners } from "../domain/spatial";
@@ -23,6 +25,7 @@ const NO_FACE: FrameSignals = {
   ear: null,
   mar: null,
   headPose: null,
+  eyeGaze: null,
   phonePresent: false,
   phoneNearFace: false,
 };
@@ -39,6 +42,8 @@ export interface MonitorDependencies {
   readonly camera: CameraSource;
   readonly media: { readonly demo: HTMLImageElement; readonly video: HTMLVideoElement };
   readonly track: (name: TelemetryEvent, payload?: EventPayload) => void;
+  /** Audible alert sink; decides itself whether sound is enabled. */
+  readonly alert: { play(tone: AlertTone): void };
   /** Called when the controller changes mode on its own (e.g. camera failure falls back to demo). */
   readonly onModeChange: (mode: SourceMode) => void;
 }
@@ -74,6 +79,7 @@ export class MonitorController {
   private readonly pipeline: MonitoringPipeline;
   private readonly layers: OverlayLayers = { mesh: true, pose: true, objects: true };
   private readonly rate = new RateMeter();
+  private readonly alertPolicy = new AlertPolicy();
   private viewport: Viewport = { width: 1, height: 1, dpr: 1 };
   private lastResult: PipelineResult | null = null;
   private phones: readonly PhoneOverlay[] = [];
@@ -214,6 +220,7 @@ export class MonitorController {
     this.pipeline.reset();
     this.deps.tracker.reset();
     this.deps.phoneDetector.reset();
+    this.alertPolicy.reset();
     this.phones = [];
     this.rate.reset();
     this.lastResult = null;
@@ -271,7 +278,13 @@ export class MonitorController {
       this.lastResult = this.process(demoSignals(profile, this.simTimeS), this.simTimeS);
       this.rate.tick(nowMs);
     }
-    this.deps.renderer.drawDemo(this.lastResult.signals, this.lastResult.attention, this.layers);
+    this.deps.renderer.drawDemo(
+      this.lastResult.signals,
+      this.lastResult.attention,
+      this.lastResult.gaze,
+      this.layers,
+      nowMs,
+    );
     const status = this.mode === "camera" ? CAMERA_LOADING_MESSAGE : this.activeNotice(nowMs);
     this.render(this.lastResult, nowMs, status, null);
   }
@@ -288,9 +301,17 @@ export class MonitorController {
     }
     const result = this.lastResult ?? this.process(NO_FACE, nowMs / 1000);
     this.lastResult = result;
-    this.deps.renderer.drawTrack(track, result.attention, this.deps.landmarker.connections, this.layers, this.phones);
+    this.deps.renderer.drawTrack(
+      track,
+      result.attention,
+      result.gaze,
+      this.deps.landmarker.connections,
+      this.layers,
+      this.phones,
+      nowMs,
+    );
     const status = this.deps.landmarker.status === "ready" ? null : `Face Mesh: ${this.deps.landmarker.status}`;
-    this.render(result, nowMs, status, this.debugLines(track));
+    this.render(result, nowMs, status, this.debugLines(track, result.gaze));
   }
 
   /** Maps detector boxes to canvas pixels (same space as the face track) and applies the proximity rule. */
@@ -320,6 +341,7 @@ export class MonitorController {
       ear: track.ear,
       mar: track.mar,
       headPose: track.pose,
+      eyeGaze: track.eyeGaze,
       phonePresent,
       phoneNearFace: phones.some((phone) => phone.near),
     };
@@ -329,6 +351,10 @@ export class MonitorController {
     const result = this.pipeline.process(signals, timestampS);
     for (const event of result.startedEvents) {
       this.deps.track("attention_event", { event, mode: this.mode, sensitivity: this.sensitivity });
+    }
+    const tone = this.alertPolicy.next(result.startedEvents, performance.now());
+    if (tone) {
+      this.deps.alert.play(tone);
     }
     return result;
   }
@@ -354,7 +380,7 @@ export class MonitorController {
     );
   }
 
-  private debugLines(track: FaceTrack | null): readonly string[] {
+  private debugLines(track: FaceTrack | null, gaze: GazeDirection | null): readonly string[] {
     const { video } = this.deps.media;
     const { width, height, dpr } = this.deps.mapper.size;
     return [
@@ -367,6 +393,8 @@ export class MonitorController {
       `mirrored: ${String(this.deps.mapper.isMirrored)}`,
       `trackingFps: ${(track?.trackingFps ?? 0).toFixed(1)}`,
       `track: ${track?.status ?? "none"}`,
+      `irisGaze: ${track?.eyeGaze ? `${track.eyeGaze.yaw.toFixed(1)} / ${track.eyeGaze.pitch.toFixed(1)}` : "--"}`,
+      `gaze: ${gaze ? `${gaze.yaw.toFixed(1)} / ${gaze.pitch.toFixed(1)}` : "--"}`,
     ];
   }
 }

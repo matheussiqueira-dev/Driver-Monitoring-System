@@ -47,6 +47,7 @@ describe("demo signals through the real pipeline", () => {
       ear: 0.1,
       mar: 0.05,
       headPose: { yaw: 0, pitch: 0, roll: 0 },
+      eyeGaze: null,
       phonePresent: false,
       phoneNearFace: false,
     };
